@@ -378,14 +378,14 @@ if [ -d "venv" ]; then
 fi
 
 # Set environment variables
-export FLASK_APP=micas.py
+export FLASK_APP=nanocas.py
 export FLASK_ENV={config['env']}
 export PORT={config['backend_port']}
 export ENABLE_DISTRIBUTED={'true' if config['distributed'] else 'false'}
 
 # Start the server
 cd server
-python micas.py
+python nanocas.py
 """)
         
         # Make the script executable
@@ -449,14 +449,14 @@ def create_startup_scripts(config, platform_info):
 source venv/bin/activate
 
 # Set environment variables
-export FLASK_APP=micas.py
+export FLASK_APP=nanocas.py
 export FLASK_ENV={config['env']}
 export PORT={config['backend_port']}
 export ENABLE_DISTRIBUTED={'true' if config['distributed'] else 'false'}
 
 # Start the server
 cd server
-python micas.py
+python nanocas.py
 """)
             os.chmod('scripts/start_backend.sh', 0o755)
             
@@ -492,14 +492,14 @@ REM Activate virtual environment
 call venv\\Scripts\\activate.bat
 
 REM Set environment variables
-set FLASK_APP=micas.py
+set FLASK_APP=nanocas.py
 set FLASK_ENV={config['env']}
 set PORT={config['backend_port']}
 set ENABLE_DISTRIBUTED={'true' if config['distributed'] else 'false'}
 
 REM Start the server
 cd server
-python micas.py
+python nanocas.py
 """)
             
             # Create script for starting the frontend
@@ -531,12 +531,12 @@ celery -A app.main.utils.tasks worker --loglevel=info
         logger.error(f"Error creating startup scripts: {e}")
         return False
 
-def create_micas_directory():
-    """Create the .micas directory for storing application data."""
-    micas_dir = os.path.expanduser('~/.micas')
+def create_nanocas_directory():
+    """Create the .nanocas directory for storing application data."""
+    nanocas_dir = os.path.expanduser('~/.nanocas')
     try:
-        os.makedirs(micas_dir, exist_ok=True)
-        logger.info(f"Created nanoCAS data directory: {micas_dir}")
+        os.makedirs(nanocas_dir, exist_ok=True)
+        logger.info(f"Created nanoCAS data directory: {nanocas_dir}")
         return True
     except Exception as e:
         logger.error(f"Error creating nanoCAS data directory: {e}")
@@ -564,8 +564,8 @@ def main():
     if config['install_deps']:
         install_dependencies(platform_info, config)
     
-    # Create .micas directory
-    create_micas_directory()
+    # Create .nanocas directory
+    create_nanocas_directory()
     
     # Setup based on configuration
     if config['use_docker'] and dependencies['docker'] and dependencies['docker-compose']:

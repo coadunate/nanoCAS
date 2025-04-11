@@ -1,4 +1,4 @@
-name: micas
+name: nanocas
 channels:
   - bioconda
   - conda-forge

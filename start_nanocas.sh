@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# assuming that this script is run after cd'ing into the MICAS folder
-# otherwise change this to be the fully qualified path to the MICAS folder
-# export MICAS_PATH=/path/to/MICAS
-export MICAS_PATH=`pwd`
+# assuming that this script is run after cd'ing into the nanocas folder
+# otherwise change this to be the fully qualified path to the nanocas folder
+# export nanocas_PATH=/path/to/nanocas
+export nanocas_PATH=`pwd`
 
 ## 0.0 HELPFUL FUNCTIONS ##
 find_in_conda_env() {
@@ -12,7 +12,7 @@ find_in_conda_env() {
 
 activate_conda_env() {
     eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
-    conda activate "micas"
+    conda activate "nanocas"
     debug "Now in conda environment: $CONDA_DEFAULT_ENV"
 }
 
@@ -22,25 +22,25 @@ print_and_run_cmd() {
 }
 
 start_redis () {
-    cd ${MICAS_PATH}/server/app/main/utils
+    cd ${nanocas_PATH}/server/app/main/utils
     activate_conda_env
     redis-server &
 }
 
 start_celery () {
-    cd ${MICAS_PATH}/server/app/main/utils
+    cd ${nanocas_PATH}/server/app/main/utils
     activate_conda_env
     celery -A tasks worker --loglevel=INFO &
 }
 
 start_flask () {
-    cd ${MICAS_PATH}
+    cd ${nanocas_PATH}
     activate_conda_env
-    python server/micas.py &
+    python server/nanocas.py &
 }
 
 start_node () {
-    cd ${MICAS_PATH}/frontend
+    cd ${nanocas_PATH}/frontend
     npm install
     npm run start &
 }
@@ -83,32 +83,28 @@ echo ${OS_TYPE}
 if command -v conda &>/dev/null; then
   debug "conda is installed"
 else
-  fatal_error "conda is needed to run MICAS"
+  fatal_error "conda is needed to run nanocas"
 fi
 
-# check to see if the micas environment is already installed
-if $(conda env list | grep -q "micas")
+# check to see if the nanocas environment is already installed
+if $(conda env list | grep -q "nanocas")
 then
-    debug "micas environment is already installed, activating..."
+    debug "nanocas environment is already installed, activating..."
     activate_conda_env
 else
-    debug "micas environment is not installed, installing..."
+    debug "nanocas environment is not installed, installing..."
     
     # create a new conda environment
-#    create_conda_env_cmd="conda create -y -q -n micas python=3.8"
-    create_conda_env_cmd="conda env create -f ${MICAS_PATH}/micas_env_mk1b.yml"
+    create_conda_env_cmd="conda env create -f ${nanocas_PATH}/nanocas_env_mk1b.yml"
     print_and_run_cmd "$create_conda_env_cmd"
 
     # activate the newly created conda environment
     activate_conda_env
-
-    # install server dependencies
-#    python -m pip install -r requirements.txt
 fi
 
-## 3.0 START MICAS ##
+## 3.0 START nanocas ##
 
-# create micas start script using osascript
+# create nanocas start script using osascript
 
 start_redis
 start_flask

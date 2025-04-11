@@ -1,9 +1,9 @@
 import React, { FunctionComponent } from 'react';
-import { IMicas } from "./home.interfaces";
+import { Inanocas } from "./home.interfaces";
 import { gotoLoc } from "../../utils/utils";
 import './home.component.css';
 
-const micas_config: IMicas = {
+const nanocas_config: Inanocas = {
     title: "nanoCAS",
     tagline: "Nanopore Classification & Alerting System",
     description: "nanoCAS is a web application designed to run simultaneously with the Nanopore DNA sequencer. " +
@@ -19,9 +19,9 @@ const HomeComponent: FunctionComponent = () => {
         <div className="nano-home-container">
             <div className="nano-hero">
                 <div className="nano-hero-content">
-                    <h1 className="nano-hero-title">{micas_config.title}</h1>
-                    <p className="nano-hero-tagline">{micas_config.tagline}</p>
-                    <p className="nano-hero-version">Version {micas_config.version}</p>
+                    <h1 className="nano-hero-title">{nanocas_config.title}</h1>
+                    <p className="nano-hero-tagline">{nanocas_config.tagline}</p>
+                    <p className="nano-hero-version">Version {nanocas_config.version}</p>
                     <div className="nano-hero-buttons">
                         <button onClick={() => gotoLoc('/setup')} className="btn btn-primary nano-btn">
                             Start New Analysis
@@ -38,7 +38,7 @@ const HomeComponent: FunctionComponent = () => {
                     <h2 className="nano-section-title">About nanoCAS</h2>
                     <div className="nano-description">
                         <p className="nano-description-text">
-                            {micas_config.description}
+                            {nanocas_config.description}
                         </p>
                     </div>
                     

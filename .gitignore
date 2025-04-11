@@ -128,7 +128,7 @@ pip-selfcheck.json
 server/app/main/__pycache__
 .DS_Store
 
-env_micas/
+env_nanocas/
 server/app/config/
 server/app/main/utils/.listing
 static/node_modules/

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from minknow_api.manager import Manager
 import logging
 
-logger = logging.getLogger('micas')
+logger = logging.getLogger('nanocas')
 
 @dataclass
 class LinuxNotification():
@@ -40,7 +40,7 @@ class LinuxNotification():
         try:
             subprocess.Popen(['notify-send', msg])
         except:
-            logger.error("Error: unable to send linux notification, are you running MICAS on linux?")
+            logger.error("Error: unable to send linux notification, are you running nanocas on linux?")
         connection_address.log.send_user_message(severity=severity, user_message=msg)
         logger.debug(connection_address.device.get_device_state())
 
