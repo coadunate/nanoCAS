@@ -1,0 +1,94 @@
+version: '3'
+
+services:
+  # Frontend service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:5007
+    depends_on:
+      - backend
+    networks:
+      - nanocas-network
+    restart: unless-stopped
+
+  # Backend service
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "5007:5007"
+    volumes:
+      - ./server:/app
+      - ~/.micas:/root/.micas
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=micas.py
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - nanocas-network
+    restart: unless-stopped
+
+  # Redis for task queue
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - nanocas-network
+    restart: unless-stopped
+
+  # Celery worker for distributed tasks
+  celery-worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    command: celery -A app.main.utils.tasks worker --loglevel=info
+    volumes:
+      - ./server:/app
+      - ~/.micas:/root/.micas
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - nanocas-network
+    restart: unless-stopped
+
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    command: celery -A app.main.utils.tasks beat --loglevel=info
+    volumes:
+      - ./server:/app
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - nanocas-network
+    restart: unless-stopped
+
+networks:
+  nanocas-network:
+    driver: bridge
+
+volumes:
+  redis-data:

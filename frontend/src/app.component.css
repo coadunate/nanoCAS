@@ -1,0 +1,116 @@
+.nano-app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.nano-main {
+  flex: 1;
+  padding: var(--ont-spacing-lg) 0;
+}
+
+body {
+  margin: 0;
+  font-family: var(--ont-font-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--ont-black);
+}
+
+h3 {
+  font-family: var(--ont-font-heading);
+  font-weight: 600;
+  color: var(--ont-primary);
+}
+
+h4 {
+  font-family: var(--ont-font-heading);
+  font-weight: 500;
+  color: var(--ont-primary);
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  monospace;
+}
+
+.twline {
+  width: 100%;
+  text-align: center;
+  border-bottom: 2px solid var(--ont-gray);
+  line-height: 0.1em;
+  margin: 10px 0 20px;
+  color: var(--ont-dark-gray);
+}
+
+.twline span {
+  background: var(--ont-white);
+  padding: 0 10px;
+}
+
+.vspacer-20 {
+  height: 20px;
+}
+
+.vspacer-50 {
+  height: 50px;
+}
+
+.vspacer-100 {
+  height: 100px;
+}
+
+/* Override Bootstrap styles with ONT theme */
+.btn-info {
+  background-color: var(--ont-secondary);
+  border-color: var(--ont-secondary);
+  color: var(--ont-white);
+}
+
+.btn-info:hover, .btn-info:focus {
+  background-color: #0095A0;
+  border-color: #0095A0;
+  color: var(--ont-white);
+}
+
+.btn-primary {
+  background-color: var(--ont-primary);
+  border-color: var(--ont-primary);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: #003A44;
+  border-color: #003A44;
+}
+
+.btn-success {
+  background-color: var(--ont-success);
+  border-color: var(--ont-success);
+}
+
+.btn-danger {
+  background-color: var(--ont-danger);
+  border-color: var(--ont-danger);
+}
+
+.text-muted {
+  color: var(--ont-medium-gray) !important;
+}
+
+.lead {
+  color: var(--ont-dark-gray);
+  line-height: 1.6;
+}
+
+/* Responsive container */
+.container, .container-fluid {
+  padding-right: var(--ont-spacing-lg);
+  padding-left: var(--ont-spacing-lg);
+}
+
+@media (max-width: 768px) {
+  .container, .container-fluid {
+    padding-right: var(--ont-spacing-md);
+    padding-left: var(--ont-spacing-md);
+  }
+}
