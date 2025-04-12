@@ -6,7 +6,6 @@
 
 .nano-main {
   flex: 1;
-  padding: var(--ont-spacing-lg) 0;
 }
 
 body {

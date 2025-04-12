@@ -1,65 +1,65 @@
 import React, { FunctionComponent, useEffect, useState } from "react";
 import { IAnalysisDataProps } from "./analysis-data.interfaces";
 import { socket } from "../../../app.component";
-import ChartComponent from "./chart/chart.component";
 import { Chart } from "react-google-charts";
 import axios from "axios";
 import './analysis-data.component.css';
 
 const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) => {
-    const analysis_data = data.data;
+    const [analysisData, setAnalysisData] = useState(data);
+    const [coverageData, setCoverageData] = useState<any[]>([]);
     const [listenerRunning, setListenerRunning] = useState(false);
     const [error, setError] = useState("");
-    const [coverageData, setCoverageData] = useState<any[]>([]);
+    const [metric, setMetric] = useState<'avg_depth' | 'breadth'>('avg_depth');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     useEffect(() => {
-        // File listener status
-        socket.emit('check_fastq_file_listener', { projectId: analysis_data.projectId });
-        
+        socket.emit('check_fastq_file_listener', { projectId: analysisData.data.projectId });
+
         const handleListenerStatus = (data: { projectId: string; is_running: boolean }) => {
-            if (data.projectId === analysis_data.projectId) setListenerRunning(data.is_running);
+            if (data.projectId === analysisData.data.projectId) setListenerRunning(data.is_running);
         };
-        
         const handleListenerStarted = (data: { projectId: string }) => {
-            if (data.projectId === analysis_data.projectId) {
+            if (data.projectId === analysisData.data.projectId) {
                 setListenerRunning(true);
                 setError("");
             }
         };
-        
         const handleListenerStopped = (data: { projectId: string }) => {
-            if (data.projectId === analysis_data.projectId) {
+            if (data.projectId === analysisData.data.projectId) {
                 setListenerRunning(false);
                 setError("");
             }
         };
-        
         const handleListenerError = (data: { projectId: string; error: string }) => {
-            if (data.projectId === analysis_data.projectId) {
+            if (data.projectId === analysisData.data.projectId) {
                 setError(data.error);
                 setListenerRunning(false);
             }
         };
-        
+
         socket.on('fastq_file_listener_status', handleListenerStatus);
         socket.on('fastq_file_listener_started', handleListenerStarted);
         socket.on('fastq_file_listener_stopped', handleListenerStopped);
         socket.on('fastq_file_listener_error', handleListenerError);
 
-        // Fetch coverage data periodically
-        const fetchCoverage = async () => {
+        const fetchData = async () => {
             try {
-                const res = await axios.get(`http://localhost:5007/get_coverage?projectId=${analysis_data.projectId}`);
-                setCoverageData(res.data);
+                const coverageRes = await axios.get(`http://localhost:5007/get_coverage?projectId=${analysisData.data.projectId}`);
+                setCoverageData(coverageRes.data);
+
+                const analysisRes = await axios.get(`http://localhost:5007/get_analysis_info?uid=${analysisData.data.projectId}`);
+                if (analysisRes.data.status === 200) {
+                    setAnalysisData(analysisRes.data);
+                }
             } catch (err) {
-                console.error("Error fetching coverage:", err);
+                console.error("Error fetching data:", err);
             }
         };
-        
-        fetchCoverage();
-        const interval = setInterval(fetchCoverage, 10000); // Update every 10 seconds
-        
+
+        fetchData();
+        const interval = setInterval(fetchData, 10000);
+
         return () => {
             clearInterval(interval);
             socket.off('fastq_file_listener_status', handleListenerStatus);
@@ -67,45 +67,8 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             socket.off('fastq_file_listener_stopped', handleListenerStopped);
             socket.off('fastq_file_listener_error', handleListenerError);
         };
-    }, [analysis_data.projectId]);
+    }, [analysisData.data.projectId]);
 
-    const handleStartFileListener = () => {
-        socket.emit('start_fastq_file_listener', {
-            minion_location: analysis_data.minion,
-            projectId: analysis_data.projectId
-        });
-    };
-
-    const handleStopFileListener = () => {
-        socket.emit('stop_fastq_file_listener', { projectId: analysis_data.projectId });
-    };
-    
-    const handleRemoveAnalysis = () => {
-        setShowConfirmModal(true);
-    };
-    
-    const confirmRemoveAnalysis = () => {
-        socket.emit('remove_analysis', { projectId: analysis_data.projectId });
-        setShowConfirmModal(false);
-        // Redirect to analysis list after a short delay
-        setTimeout(() => {
-            window.location.href = '/analysis';
-        }, 1000);
-    };
-    
-    const cancelRemoveAnalysis = () => {
-        setShowConfirmModal(false);
-    };
-
-    // Match ratio bar plot data
-    let matchData = [["Name", "Match Percentage (%)", "Threshold (%)"]];
-    for (let query of analysis_data.queries) {
-        const threshNum = parseFloat(query.threshold);
-        const currVal = query.current_value || 0;
-        matchData.push([query.name, currVal, threshNum]);
-    }
-
-    // Coverage line chart data
     const formatCoverageData = () => {
         const refs = [...new Set(coverageData.map(d => d.reference))];
         const times = [...new Set(coverageData.map(d => d.timestamp))].sort();
@@ -114,11 +77,49 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             const row = [time];
             refs.forEach(ref => {
                 const entry = coverageData.find(d => d.timestamp === time && d.reference === ref);
-                row.push(entry ? entry.coverage : 0);
+                row.push(entry ? entry[metric] : 0);
             });
             return row;
         });
         return [header, ...rows];
+    };
+
+    const getSankeyData = () => {
+        if (coverageData.length === 0) return [['From', 'To', 'Weight']];
+        const timestamps = coverageData.map(d => new Date(d.timestamp).getTime());
+        const maxTimestamp = Math.max(...timestamps);
+        const latestData = coverageData.filter(d => new Date(d.timestamp).getTime() === maxTimestamp);
+        return [
+            ['From', 'To', 'Weight'],
+            ...latestData.map(entry => ['Sequencing Run', entry.reference, entry.read_count])
+        ];
+    };
+
+    const handleStartFileListener = () => {
+        socket.emit('start_fastq_file_listener', {
+            minion_location: analysisData.data.minion,
+            projectId: analysisData.data.projectId
+        });
+    };
+
+    const handleStopFileListener = () => {
+        socket.emit('stop_fastq_file_listener', { projectId: analysisData.data.projectId });
+    };
+
+    const handleRemoveAnalysis = () => {
+        setShowConfirmModal(true);
+    };
+
+    const confirmRemoveAnalysis = () => {
+        socket.emit('remove_analysis', { projectId: analysisData.data.projectId });
+        setShowConfirmModal(false);
+        setTimeout(() => {
+            window.location.href = '/analysis';
+        }, 1000);
+    };
+
+    const cancelRemoveAnalysis = () => {
+        setShowConfirmModal(false);
     };
 
     return (
@@ -132,15 +133,15 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                     <div className="nano-info-grid">
                         <div className="nano-info-item">
                             <span className="nano-info-label">Analysis ID</span>
-                            <span className="nano-info-value">{analysis_data.projectId}</span>
+                            <span className="nano-info-value">{analysisData.data.projectId}</span>
                         </div>
                         <div className="nano-info-item">
                             <span className="nano-info-label">MinION Path</span>
-                            <span className="nano-info-value">{analysis_data.minion}</span>
+                            <span className="nano-info-value">{analysisData.data.minion}</span>
                         </div>
                         <div className="nano-info-item">
                             <span className="nano-info-label">Device</span>
-                            <span className="nano-info-value">{analysis_data.device || "Not specified"}</span>
+                            <span className="nano-info-value">{analysisData.data.device || "Not specified"}</span>
                         </div>
                         <div className="nano-info-item">
                             <span className="nano-info-label">Status</span>
@@ -149,9 +150,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                             </span>
                         </div>
                     </div>
-                    
                     {error && <div className="ont-alert nano-alert-danger">{error}</div>}
-                    
                     <div className="nano-actions">
                         {listenerRunning ? (
                             <button className="btn btn-danger nano-btn" onClick={handleStopFileListener}>
@@ -168,19 +167,19 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                     </div>
                 </div>
             </div>
-            
-            <div className="ont-card nano-chart-card">
-                <div className="nano-card-header">
-                    <h3 className="nano-card-title">Sequences Match Visualization</h3>
-                </div>
-                <div className="nano-card-body">
-                    <ChartComponent queries_data={matchData} />
-                </div>
-            </div>
-            
+
+            {/* Coverage Plot */}
             <div className="ont-card nano-chart-card">
                 <div className="nano-card-header">
                     <h3 className="nano-card-title">Coverage Over Time</h3>
+                    <select
+                        value={metric}
+                        onChange={(e) => setMetric(e.target.value as 'avg_depth' | 'breadth')}
+                        className="form-control w-auto d-inline-block ml-2"
+                    >
+                        <option value="avg_depth">Average Depth</option>
+                        <option value="breadth">Breadth of Coverage (%)</option>
+                    </select>
                 </div>
                 <div className="nano-card-body">
                     {coverageData.length > 0 ? (
@@ -188,17 +187,17 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                             chartType="LineChart"
                             data={formatCoverageData()}
                             options={{
-                                title: "Average Coverage Depth Over Time",
+                                title: metric === 'avg_depth' ? 'Average Coverage Depth Over Time' : 'Breadth of Coverage Over Time',
                                 hAxis: { title: "Time" },
-                                vAxis: { title: "Average Coverage Depth (reads/position)", minValue: 0 },
+                                vAxis: { 
+                                    title: metric === 'avg_depth' ? 'Average Depth (reads/position)' : 'Breadth (%)', 
+                                    minValue: 0,
+                                    maxValue: metric === 'breadth' ? 100 : undefined
+                                },
                                 legend: { position: "bottom" },
                                 colors: ['#00B0BD', '#004E5A', '#FF6A45', '#27AE60'],
                                 chartArea: { width: '80%', height: '70%' },
-                                animation: {
-                                    startup: true,
-                                    duration: 1000,
-                                    easing: 'out'
-                                }
+                                animation: { startup: true, duration: 1000, easing: 'out' }
                             }}
                             width="100%"
                             height="400px"
@@ -211,7 +210,43 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                     )}
                 </div>
             </div>
-            
+
+            {/* Sankey Plot */}
+            <div className="ont-card nano-chart-card">
+                <div className="nano-card-header">
+                    <h3 className="nano-card-title">Alert Sequences Distribution</h3>
+                </div>
+                <div className="nano-card-body">
+                    {coverageData.length > 0 ? (
+                        <Chart
+                            chartType="Sankey"
+                            data={getSankeyData()}
+                            options={{
+                                sankey: {
+                                    node: {
+                                        nodePadding: 50,
+                                        width: 20,
+                                        label: { fontName: 'Arial', fontSize: 14, color: '#000' },
+                                        colors: ['#00B0BD', '#004E5A', '#FF6A45', '#27AE60'],
+                                    },
+                                    link: {
+                                        colorMode: 'gradient',
+                                        colors: ['#a6cee3', '#b2df8a', '#fb9a99', '#fdbf6f'],
+                                    },
+                                },
+                            }}
+                            width="100%"
+                            height="400px"
+                        />
+                    ) : (
+                        <div className="nano-empty-state">
+                            <p>No data available yet for Sankey plot.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Confirmation Modal */}
             {showConfirmModal && (
                 <div className="nano-modal-overlay">
                     <div className="nano-modal">

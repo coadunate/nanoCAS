@@ -1,6 +1,10 @@
-# nanoCAS: Nanopore Classification & Alerting System
+<div align="center">
+    <img src="https://github-production-user-asset-6210df.s3.amazonaws.com/19979068/432979477-cc6b9e9b-6cb3-4654-920b-4c3287a24885.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250411%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250411T230712Z&X-Amz-Expires=300&X-Amz-Signature=301bb8cebc93af38d3d2d7f29d6b0063e69bc321f4708226347a5b08cd38f097&X-Amz-SignedHeaders=host" />
+    <h1>nanoCAS</h1>
+    <i>A nanopore classification and alerting web application for portable diagnostics</i><br>
+</div>
 
-## Overview
+# Overview
 
 nanoCAS (Nanopore Classification & Alerting System) is a web application designed to run simultaneously with the Nanopore DNA sequencer. This application provides an alerting system through which scientists performing DNA sequencing runs can be notified when sequences of interest arise in their sample. This enables researchers to use their time more efficiently by allowing them to focus on other tasks rather than waiting for significant sequences to appear.
 
@@ -280,22 +284,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 If you use nanoCAS in your research, please cite:
 
 ```
-nanoCAS: Nanopore Classification & Alerting System. (2025).
-https://github.com/nanocas/nanocas
+Soomro T., Horovatin S., Dumonceaux T.J. (2025) nanoCAS: A real-time monitoring tool for Nanopore sequencing data. *bioRxiv* 2023.08.01.550800; doi: https://doi.org/10.1101/2023.08.01.550800
 ```
 
-BibTeX:
-
-```bibtex
-@software{nanocas2025,
-  author = {{nanoCAS Team}},
-  title = {nanoCAS: Nanopore Classification \& Alerting System},
-  year = {2025},
-  url = {https://github.com/nanocas/nanocas}
-}
-```
-
-## Acknowledgments
+Acknowledgments
 
 - The nanoCAS development team (Tayab Soomro & Sam Horovatin)
 - Dr. Tim Dumonceaux from AAFC for guidance and support

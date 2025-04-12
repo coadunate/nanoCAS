@@ -39,16 +39,13 @@ def get_timeline_info():
 def get_micas_cache_path():
     return os.path.join(MICAS_DIR, '.cache')
 
-
 def get_analysis_timeline_path():
     return os.path.join(MICAS_DIR, 'analysis.timeline')
-
 
 def write_to_cache(uid, minION_location, uid_dir):
     entry = f"{uid}\t{minION_location}\t{uid_dir}\n"
     with open(get_micas_cache_path(), 'a+') as cache_fs:
         cache_fs.write(entry)
-
 
 @main.route('/get_uid', methods=["POST"])
 def get_uid():
@@ -68,7 +65,6 @@ def get_uid():
     write_to_cache(uid, minION_location, uid_dir)
 
     return jsonify({'uid': uid})
-
 
 @main.route('/get_all_analyses', methods=['GET'])
 def get_all_analyses():
@@ -120,7 +116,6 @@ def delete_analyses():
         'found' : found
     })
 
-
 @main.route('/get_analysis_info', methods=['GET'])
 def get_analysis_info():
     if request.method == 'GET':
@@ -154,7 +149,6 @@ def get_analysis_info():
 
     else:
         return "Unexpected request method. Expected a GET request."
-
 
 @main.route('/analysis', methods=['GET'])
 def analysis():
@@ -237,12 +231,9 @@ def validate_locations():
     else:
         return "N/A"
 
-
 @main.route('/get_coverage', methods=['GET'])
 def get_coverage():
     project_id = request.args.get('projectId')
-    if not project_id:
-        return jsonify({'error': 'Project ID is required'}), 400
     coverage_file = os.path.join(MICAS_DIR, project_id, 'coverage.csv')
     if not os.path.exists(coverage_file):
         return jsonify({'error': 'Coverage file not found'}), 404
@@ -261,9 +252,15 @@ def get_coverage():
             lines = f.readlines()[1:]  # Skip header
         data = []
         for line in lines:
-            timestamp, ref, coverage = line.strip().split(',')
-            name = ref_to_name.get(ref, ref)  # Fallback to ref if no name
-            data.append({'timestamp': timestamp, 'reference': name, 'coverage': float(coverage)})
+            timestamp, ref, avg_depth, breadth, read_count = line.strip().split(',')
+            name = ref_to_name.get(ref, ref)  # Map reference to alert sequence name
+            data.append({
+                'timestamp': timestamp,
+                'reference': name,
+                'avg_depth': float(avg_depth),
+                'breadth': float(breadth),
+                'read_count': int(read_count)
+            })
         return jsonify(data)
     except Exception as e:
         logger.error(f"Error reading coverage file: {e}")
@@ -282,6 +279,4 @@ def index_devices():
                     devices.append(device.name)
                     LinuxNotification.send_notification(device.name, "Device discovered by MICAS", severity=1)
         
-        
-
         return json.dumps(devices)

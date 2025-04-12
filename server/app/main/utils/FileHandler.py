@@ -25,7 +25,7 @@ class FileHandler(FileSystemEventHandler):
         # Initialize coverage file with headers if it doesn’t exist
         if not os.path.exists(self.coverage_file):
             with open(self.coverage_file, 'w') as f:
-                f.write("timestamp,reference,coverage\n")
+                f.write("timestamp,reference,avg_depth,breadth,read_count\n")
 
     def on_moved(self, event):
         self.on_any_event(event)
@@ -94,8 +94,6 @@ class FileHandler(FileSystemEventHandler):
         # Merge and calculate coverage
         self.merge_bam(sorted_bam_output)
         self.calculate_and_record_coverage()
-        # Process for alerts
-        self.process_minimap2_for_alerts(src_path, index_file)
         # Clean up
         if os.path.exists(sorted_bam_output):
             os.remove(sorted_bam_output)
@@ -138,7 +136,7 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"Error sorting/indexing merged BAM: {e}")
 
     def calculate_and_record_coverage(self):
-        """Calculate and record average coverage per reference."""
+        """Calculate and record average depth, breadth of coverage, and read count per reference."""
         try:
             bam = pysam.AlignmentFile(self.merged_bam, "rb", check_sq=False)
             if not bam.has_index():
@@ -146,51 +144,36 @@ class FileHandler(FileSystemEventHandler):
                 return
             coverage_data = {}
             for ref in bam.references:
+                ref_length = bam.lengths[bam.references.index(ref)]
                 pileup = bam.pileup(ref)
-                depths = [p.nsegments for p in pileup if p.nsegments > 0]  # Count of reads at each position
-                avg_coverage = sum(depths) / len(depths) if depths else 0
-                coverage_data[ref] = avg_coverage
+                depths = [p.nsegments for p in pileup if p.nsegments > 0]
+                covered_positions = len(depths)
+                avg_depth = sum(depths) / len(depths) if depths else 0
+                breadth = (covered_positions / ref_length) * 100 if ref_length > 0 else 0
+                read_count = bam.count(ref)  # Count reads mapping to this reference
+                coverage_data[ref] = {"avg_depth": avg_depth, "breadth": breadth, "read_count": read_count}
+                # Check if breadth exceeds the threshold and trigger alert if necessary
+                self.check_breadth_alert(ref, breadth)
             bam.close()
 
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
             with open(self.coverage_file, 'a') as f:
                 for ref, cov in coverage_data.items():
-                    f.write(f"{timestamp},{ref},{cov}\n")
-            logger.debug(f"Coverage recorded at {timestamp}")
+                    f.write(f"{timestamp},{ref},{cov['avg_depth']},{cov['breadth']},{cov['read_count']}\n")
+            logger.debug(f"Coverage and read counts recorded at {timestamp}")
+
+            # Emit coverage update via Socket.IO
+            from .. import socketio
+            socketio.emit('coverage_update', {
+                'projectId': self.config.get('projectId', ''),
+                'timestamp': timestamp,
+                'coverage': coverage_data
+            })
         except Exception as e:
             logger.error(f"Error calculating coverage: {e}")
 
-    def process_minimap2_for_alerts(self, src_path: str, index_file: str):
-        """Process FASTQ for alerts using PAF output."""
-        paf_output = os.path.join(self.app_loc, 'minimap2', 'runs', f'{os.path.basename(src_path)}.paf')
-        cmd = f'minimap2 {index_file} {src_path} -o {paf_output}'
-        subprocess.run(cmd, shell=True)
-        self.process_minimap2_output(paf_output)
-        if os.path.exists(paf_output):
-            os.remove(paf_output)
-
-    def process_minimap2_output(self, minimap2_output: str):
-        """Process PAF output for alerts."""
-        final_output = os.path.join(self.app_loc, 'minimap2', 'final.out.paf')
-        with open(minimap2_output, 'r') as f:
-            line = f.readline().strip()
-            if not line:
-                logger.error(f"PAF file {minimap2_output} is empty")
-                return
-            fields = line.split("\t")
-            if len(fields) < 10:
-                logger.error(f"Unexpected format in {minimap2_output}")
-                return
-            match_alert_header = fields[5]
-            num_match = int(fields[9])
-            tot_len = int(fields[6])
-            percent_match_value = (num_match / tot_len) * 100
-            logger.debug(f"Alignment: Header={match_alert_header}, % Match={percent_match_value:.2f}")
-            self.update_alert_info(match_alert_header, percent_match_value)
-            self.handle_output_files(minimap2_output, final_output)
-
-    def update_alert_info(self, match_alert_header: str, percent_match_value: float):
-        """Update alert info and send notifications if threshold exceeded."""
+    def check_breadth_alert(self, ref: str, breadth: float):
+        """Check if breadth coverage exceeds the threshold and trigger alert if necessary."""
         alertinfo_cfg_file = os.path.join(self.app_loc, 'alertinfo.cfg')
         try:
             with open(alertinfo_cfg_file, 'r') as f:
@@ -198,24 +181,17 @@ class FileHandler(FileSystemEventHandler):
             queries = alertinfo_cfg_data.get("queries", [])
             device = alertinfo_cfg_data.get("device", "")
             for query in queries:
-                if match_alert_header == query.get("header", ""):
-                    query["current_value"] = percent_match_value
+                if ref == query.get("header", ""):
                     threshold = float(query.get("threshold", 0))
-                    if percent_match_value >= threshold:
-                        alert_str = f"Alert: {query['name']} detected at {percent_match_value:.2f}% (threshold: {threshold}%)"
+                    current_breadth = query.get("current_breadth", 0)
+                    if breadth > current_breadth:  # Update if new breadth is higher
+                        query["current_breadth"] = breadth
+                        with open(alertinfo_cfg_file, 'w') as f:
+                            json.dump(alertinfo_cfg_data, f, indent=4)
+                    if breadth >= threshold and current_breadth < threshold:
+                        alert_str = f"Alert: {query['name']} breadth coverage reached {breadth:.2f}% (threshold: {threshold}%)"
                         logger.critical(alert_str)
                         if device:
                             LinuxNotification.send_notification(device, alert_str)
-            with open(alertinfo_cfg_file, 'w') as f:
-                json.dump(alertinfo_cfg_data, f, indent=4)
         except Exception as e:
-            logger.error(f"Error updating alert info: {e}")
-
-    def handle_output_files(self, minimap2_output: str, final_output: str):
-        """Manage PAF output files."""
-        if os.path.isfile(final_output):
-            with open(final_output, "a+") as f:
-                f.writelines(open(minimap2_output).readlines())
-        else:
-            os.rename(minimap2_output, final_output)
-        self.num_files_classified += 1
+            logger.error(f"Error checking breadth alert: {e}")
