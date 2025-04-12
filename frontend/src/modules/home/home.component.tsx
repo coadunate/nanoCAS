@@ -19,17 +19,9 @@ const HomeComponent: FunctionComponent = () => {
         <div className="nano-home-container">
             <div className="nano-hero">
                 <div className="nano-hero-content">
-                    <h1 className="nano-hero-title">{nanocas_config.title}</h1>
-                    <p className="nano-hero-tagline">{nanocas_config.tagline}</p>
-                    <p className="nano-hero-version">Version {nanocas_config.version}</p>
-                    <div className="nano-hero-buttons">
-                        <button onClick={() => gotoLoc('/setup')} className="btn btn-primary nano-btn">
-                            Start New Analysis
-                        </button>
-                        <button onClick={() => gotoLoc('/analysis')} className="btn btn-outline-primary nano-btn">
-                            View Analyses
-                        </button>
-                    </div>
+                    <h1 className="nano-hero-title">{micas_config.title}</h1>
+                    <p className="nano-hero-tagline">{micas_config.tagline}</p>
+                    <p className="nano-hero-version">Version {micas_config.version}</p>                    
                 </div>
             </div>
             

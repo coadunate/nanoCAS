@@ -21,6 +21,8 @@
 }
 
 .nano-card-header {
+  display: flex;
+  justify-content: space-between;
   background-color: var(--ont-primary);
   color: var(--ont-white);
   padding: var(--ont-spacing-md) var(--ont-spacing-lg);

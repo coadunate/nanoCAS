@@ -1,13 +1,13 @@
 type IAdditionalSequences = {
-    queries : IQuery[]
+    queries: IQuery[]
 }
 
 type IQuery = {
     name: string,
-    file : string,
+    file: string,
     threshold: string,
-    current_value: number
-    alert: false,
+    current_breadth: number,
+    alert: boolean
 }
 
 export type {
