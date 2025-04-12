@@ -179,7 +179,7 @@ EOF
     fi
     
     echo "Local setup complete."
-    echo "To start the backend server: cd server && python micas.py"
+    echo "To start the backend server: cd server && python nanocas.py"
     echo "To start the frontend server: cd frontend && npm start"
 }
 
@@ -210,13 +210,13 @@ if command -v conda &> /dev/null; then
 fi
 
 # Set environment variables
-export FLASK_APP=micas.py
+export FLASK_APP=nanocas.py
 export FLASK_ENV=$ENV
 export PORT=$BACKEND_PORT
 
 # Start the server
 cd server
-python micas.py
+python nanocas.py
 EOF
 
     chmod +x slurm_submit.sh
@@ -265,7 +265,7 @@ echo ENV=$ENV >> .env
 echo ENABLE_DISTRIBUTED=$DISTRIBUTED >> .env
 
 echo Setup complete.
-echo To start the backend server: call venv\Scripts\activate.bat ^& cd server ^& python micas.py
+echo To start the backend server: call venv\Scripts\activate.bat ^& cd server ^& python nanocas.py
 echo To start the frontend server: cd frontend ^& npm start
 EOF
 
@@ -280,7 +280,7 @@ echo "===================="
 detect_os
 
 # Create necessary directories
-mkdir -p ~/.micas
+mkdir -p ~/.nanocas
 
 # Proceed with setup based on environment
 if [ "$USE_DOCKER" = true ] && check_docker; then
@@ -337,7 +337,7 @@ EOF
     fi
     
     echo "Local setup complete."
-    echo "To start the backend server: source venv/bin/activate && cd server && python micas.py"
+    echo "To start the backend server: source venv/bin/activate && cd server && python nanocas.py"
     echo "To start the frontend server: cd frontend && npm start"
 fi
 

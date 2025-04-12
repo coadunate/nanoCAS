@@ -6,7 +6,7 @@ import axios from "axios";
 type IAnalysisMetaData = {
     id: string,
     minion_dir: string,
-    micas_dir: string
+    nanocas_dir: string
 }
 
 type IListRendererProps = {
@@ -15,7 +15,7 @@ type IListRendererProps = {
 }
 
 const initial_analyses_data = [
-    {id: "", minion_dir: "", micas_dir: ""}
+    {id: "", minion_dir: "", nanocas_dir: ""}
 ];
 
 const ListRenderer: FunctionComponent<IListRendererProps> = ({analyses, update}) => {
@@ -59,7 +59,7 @@ const ListRenderer: FunctionComponent<IListRendererProps> = ({analyses, update})
                                     <b>Nanopore Reads
                                        Directory:</b> {a.minion_dir}
                                     <br/>
-                                    <b>MICAS Directory:</b> {a.micas_dir}
+                                    <b>nanocas Directory:</b> {a.nanocas_dir}
                                 </div>
                                 <div className={"align-self-center"}>
                                     <Link to={"/analysis/" + a.id}>

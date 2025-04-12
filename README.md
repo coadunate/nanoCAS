@@ -92,7 +92,7 @@ npm install
 
 ```bash
 cd server
-python micas.py
+python nanocas.py
 ```
 
 5. Start the frontend development server:
@@ -194,7 +194,7 @@ nanoCAS/
 │   │   │   └── routes.py   # API routes
 │   ├── minknow_api/        # MinKNOW API integration
 │   ├── utils/              # Utility modules
-│   ├── micas.py            # Application entry point
+│   ├── nanocas.py            # Application entry point
 │   └── requirements.txt    # Python dependencies
 ├── docker-compose.yml      # Docker Compose configuration
 ├── setup.py                # Python setup script
@@ -210,7 +210,7 @@ nanoCAS/
    - Changes will automatically reload
 3. For backend development:
    - Set `FLASK_ENV=development` environment variable
-   - Run `python micas.py` in the server directory
+   - Run `python nanocas.py` in the server directory
    - Restart the server to apply changes
 
 ### Building for Production
@@ -260,7 +260,7 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 Log files are stored in the following locations:
 
-- Backend logs: `server/logs/micas.log`
+- Backend logs: `server/logs/nanocas.log`
 - Frontend development logs: Console output
 - Docker logs: Access with `docker-compose logs`
 - Setup logs: `nanocas_setup.log`

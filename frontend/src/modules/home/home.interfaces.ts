@@ -1,4 +1,4 @@
-type IMicas = {
+type Inanocas = {
     title: string,
     tagline: string,
     description: string,
@@ -6,5 +6,5 @@ type IMicas = {
 }
 
 export type {
-    IMicas
+    Inanocas
 }

@@ -10,7 +10,7 @@ import pysam
 from watchdog.events import FileSystemEventHandler
 from .LinuxNotification import LinuxNotification
 
-logger = logging.getLogger('micas')
+logger = logging.getLogger('nanocas')
 
 class FileHandler(FileSystemEventHandler):
     def __init__(self, app_loc: str):

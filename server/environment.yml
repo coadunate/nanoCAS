@@ -1,4 +1,4 @@
-name: micas_env_yaml
+name: nanocas_env_yaml
 channels:
   - conda-forge
   - anaconda

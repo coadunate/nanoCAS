@@ -15,9 +15,9 @@ tell application "iTerm"
     
     -- START UP REDIS & CELERY
     tell current session of current window
-        write text "cd ~/Documents/MICAS/server/app/main/utils"
+        write text "cd ~/Documents/nanocas/server/app/main/utils"
         delay 1
-        write text "conda activate micas"
+        write text "conda activate nanocas"
         delay 1
         write text "redis-server &"
         delay 1
@@ -31,11 +31,11 @@ tell application "iTerm"
     
     -- START UP FLASK BACKEND
     tell current session of current window
-        write text "cd ~/Documents/MICAS"
+        write text "cd ~/Documents/nanocas"
         delay 1
-            write text "conda activate micas"
+            write text "conda activate nanocas"
         delay 1
-        write text "python server/micas.py"
+        write text "python server/nanocas.py"
     end tell
     
     -- go to the right split
@@ -44,7 +44,7 @@ tell application "iTerm"
     
     -- START UP FLASK BACKEND
     tell current session of current window
-        write text "cd ~/Documents/MICAS"
+        write text "cd ~/Documents/nanocas"
         delay 1
     end tell
     
@@ -54,7 +54,7 @@ tell application "iTerm"
     
     -- START UP FRONT END
     tell current session of current window
-        write text "cd ~/Documents/MICAS/frontend"
+        write text "cd ~/Documents/nanocas/frontend"
         delay 1
         write text "npm install"
         delay 1

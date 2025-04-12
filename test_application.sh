@@ -86,16 +86,16 @@ fi
 # Test 5: Check server code
 echo "Test 5: Testing server code..."
 
-if [ -f "server/micas.py" ]; then
+if [ -f "server/nanocas.py" ]; then
   # Syntax check
-  python -m py_compile server/micas.py > /dev/null 2>&1
+  python -m py_compile server/nanocas.py > /dev/null 2>&1
   if [ $? -eq 0 ]; then
     echo "✅ Server code compiles successfully"
   else
     echo "❌ Server code has syntax errors"
   fi
 else
-  echo "❌ Server entry point (micas.py) not found"
+  echo "❌ Server entry point (nanocas.py) not found"
 fi
 
 # Test 6: Check distributed computing setup

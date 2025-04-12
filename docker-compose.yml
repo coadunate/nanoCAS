@@ -29,10 +29,10 @@ services:
       - "5007:5007"
     volumes:
       - ./server:/app
-      - ~/.micas:/root/.micas
+      - ~/.nanocas:/root/.nanocas
     environment:
       - FLASK_ENV=development
-      - FLASK_APP=micas.py
+      - FLASK_APP=nanocas.py
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       - redis
@@ -59,7 +59,7 @@ services:
     command: celery -A app.main.utils.tasks worker --loglevel=info
     volumes:
       - ./server:/app
-      - ~/.micas:/root/.micas
+      - ~/.nanocas:/root/.nanocas
     environment:
       - REDIS_URL=redis://redis:6379/0
     depends_on:

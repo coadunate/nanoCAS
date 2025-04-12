@@ -1,5 +1,5 @@
 {
-  "short_name": "MICAS",
+  "short_name": "nanocas",
   "name": "Nanopore Classification & Alerting System",
   "start_url": ".",
   "display": "standalone",

@@ -3,7 +3,7 @@ static/dist
 .listing
 server/.listing
 server/__pycache__/
-env_micas
+env_nanocas
 .DS_Store
 server/app/config/*
 server/app/main/__pycache__/
