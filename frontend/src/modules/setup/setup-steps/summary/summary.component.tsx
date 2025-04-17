@@ -1,8 +1,8 @@
-import React, {FunctionComponent, useEffect, useState} from 'react';
-import {IDatabseSetupInput, ILocationConfig} from "../database-setup/database-setup.interfaces";
-import {IQuery} from "../database-setup/additional-sequences-setup/additional-sequences-setup.interfaces";
+import React, { FunctionComponent, useState } from 'react';
+import { IDatabseSetupInput, ILocationConfig } from "../database-setup/database-setup.interfaces";
+import { IQuery } from "../database-setup/additional-sequences-setup/additional-sequences-setup.interfaces";
 import axios from "axios";
-import {socket} from "../../../../app.component";
+import { socket } from "../../../../app.component";
 
 const VALIDATION_STATES = {
     NOT_STARTED: 0,
@@ -14,7 +14,6 @@ const VALIDATION_STATES = {
 type ISummaryComponentProps = {
     databaseSetupInput: IDatabseSetupInput
 }
-
 
 const validateLocations = (queries: IQuery[], locations: ILocationConfig) => {
     let queryFiles = ""
@@ -45,60 +44,57 @@ const getUniqueUID = (locations: ILocationConfig) => {
     })
 }
 
-const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({databaseSetupInput}) => {
-
+const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseSetupInput }) => {
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
     const [validationState, setValidationState] = useState(VALIDATION_STATES.NOT_STARTED);
     const [started, setStarted] = useState(false);
     const [uid, setUID] = useState("");
 
-    // additional databases
-    const add_databases = databaseSetupInput.queries.queries
-
-    useEffect(() => {
-        (async () => {
-            const res = await validateLocations(add_databases, databaseSetupInput.locations)
-            const v_code = res.data.code
-
-            if (v_code === 0) { // if locations are valid
-                const res_uid = await getUniqueUID(databaseSetupInput.locations)
-                setUID(res_uid.data.uid)
-                setValidationState(VALIDATION_STATES.VALIDATED)
-            } else {
-                setValidationState(VALIDATION_STATES.NOT_VALID)
-            }
-
-        })().catch(err=>err);
-
-    }, [started, add_databases, databaseSetupInput.locations])
-
+    // Additional databases
+    const add_databases = databaseSetupInput.queries.queries;
 
     const initiateDatabaseCreation = async (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         e.preventDefault();
-        setStarted(prev => !prev);
+        setStarted(true);
 
-        if (validationState === VALIDATION_STATES.VALIDATED) {
-            socket.emit('log', "Locations are valid", "INFO");
-            let dbInfo = {
-                minion: databaseSetupInput.locations.minionLocation,
-                queries: add_databases,
-                projectId: uid,
-                device: databaseSetupInput.device.device,
-                fileType: databaseSetupInput.fileType  // Add fileType
-            };
+        try {
+            // Validate locations
+            const res = await validateLocations(add_databases, databaseSetupInput.locations);
+            const v_code = res.data.code;
 
-            socket.emit('log', dbInfo, "DEBUG");
-            socket.emit('download_database', dbInfo, () => {
-                socket.emit('log', "Creating database...", "INFO");
-            });
-            let _url = 'http://' + window.location.hostname + ":" + window.location.port + '/analysis/' + uid;
-            setSuccess("Creating database... You can view the analysis <a href='" + _url + "'>here</a>");
-        } else {
-            setError("Locations are not valid");
+            if (v_code === 0) { // Locations are valid
+                // Generate UUID only when initiating
+                const res_uid = await getUniqueUID(databaseSetupInput.locations);
+                const newUID = res_uid.data.uid;
+                setUID(newUID);
+                setValidationState(VALIDATION_STATES.VALIDATED);
+
+                // Proceed with database creation
+                socket.emit('log', "Locations are valid", "INFO");
+                let dbInfo = {
+                    minion: databaseSetupInput.locations.minionLocation,
+                    queries: add_databases,
+                    projectId: newUID,
+                    device: databaseSetupInput.device.device,
+                    fileType: databaseSetupInput.fileType
+                };
+
+                socket.emit('log', dbInfo, "DEBUG");
+                socket.emit('download_database', dbInfo, () => {
+                    socket.emit('log', "Creating database...", "INFO");
+                });
+                let _url = 'http://' + window.location.hostname + ":" + window.location.port + '/analysis/' + newUID;
+                setSuccess("Creating database... You can view the analysis <a href='" + _url + "'>here</a>");
+            } else {
+                setValidationState(VALIDATION_STATES.NOT_VALID);
+                setError("Locations are not valid");
+            }
+        } catch (err) {
+            setError("An error occurred during setup");
+            console.error(err);
         }
     };
-
 
     return (
         <div className="container text-center">
@@ -131,7 +127,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({databaseSe
                 <tr><th colSpan={3}>Configuration</th></tr>
                 </thead>
                 <tbody>
-                <tr><th>Nanopore Directory</th><td colSpan={2}>{databaseSetupInput.locations.minionLocation}</td></tr>
+                <tr><th>MinION Directory</th><td colSpan={2}>{databaseSetupInput.locations.minionLocation}</td></tr>
                 <tr><th>Sequencing Device</th><td colSpan={2}>{databaseSetupInput.device.device || "Not provided"}</td></tr>
                 <tr><th>File Type</th><td colSpan={2}>{databaseSetupInput.fileType}</td></tr>
                 </tbody>
@@ -144,4 +140,4 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({databaseSe
     );
 }
 
-export default  SummaryComponent;
+export default SummaryComponent;

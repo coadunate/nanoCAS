@@ -53,13 +53,16 @@ def get_uid():
     if not minION_location:
         abort(400, description="minION location not provided.")
 
+    cache_path = get_nanocas_cache_path()
     uid = str(uuid.uuid4())
 
-    cache_path = get_nanocas_cache_path()
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as cache_fs:
-            if uid in cache_fs.read():
-                uid = str(uuid.uuid4())  # In case of collision, generate a new UUID
+            lines = cache_fs.readlines()
+            for line in lines:
+                parts = line.strip().split('\t')
+                if len(parts) >= 2 and parts[1] == minION_location:
+                    return jsonify({'uid': parts[0]})  # Return existing UID
 
     uid_dir = os.path.join(nanocas_DIR, uid)
     write_to_cache(uid, minION_location, uid_dir)
