@@ -284,7 +284,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 If you use nanoCAS in your research, please cite:
 
 ```
-Soomro T., Horovatin S., Dumonceaux T.J. (2025) nanoCAS: A real-time monitoring tool for Nanopore sequencing data. *bioRxiv* 2023.08.01.550800; doi: https://doi.org/10.1101/2023.08.01.550800
+Soomro T., Horovatin S., Dumonceaux T.J., Links M.G. (2025) nanoCAS: A real-time monitoring tool for Nanopore sequencing data. *bioRxiv* 2023.08.01.550800; doi: https://doi.org/10.1101/2023.08.01.550800
 ```
 
 Acknowledgments
