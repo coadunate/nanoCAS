@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="https://github-production-user-asset-6210df.s3.amazonaws.com/19979068/432979477-cc6b9e9b-6cb3-4654-920b-4c3287a24885.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250411%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250411T230712Z&X-Amz-Expires=300&X-Amz-Signature=301bb8cebc93af38d3d2d7f29d6b0063e69bc321f4708226347a5b08cd38f097&X-Amz-SignedHeaders=host" />
+    <img src="https://github.com/user-attachments/assets/29a83815-f0c3-4ddc-a19d-b01c16d92fff" width="10%" />
     <h1>nanoCAS</h1>
     <i>A nanopore classification and alerting web application for portable diagnostics</i><br>
 </div>
