@@ -234,7 +234,7 @@ def validate_locations():
 @main.route('/get_coverage', methods=['GET'])
 def get_coverage():
     project_id = request.args.get('projectId')
-    coverage_file = os.path.join(MICAS_DIR, project_id, 'coverage.csv')
+    coverage_file = os.path.join(nanocas_DIR, project_id, 'coverage.csv')
     if not os.path.exists(coverage_file):
         return jsonify({'error': 'Coverage file not found'}), 404
 

@@ -15,7 +15,7 @@ socket.on('connect', function() {
     socket.send('message', 'User has connected!');
 });
 
-socket.on('connect_error', (err) => {
+socket.on('connect_error', (err: any) => {
     console.log(`connect error due to ${err}`)
 })
 

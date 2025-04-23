@@ -14,14 +14,15 @@ import {
 
 const qrs: IAdditionalSequences = {
     queries: [
-        {name: "", file: "", threshold: "", current_value: 0, alert: false}
+        {name: "", file: "", threshold: "", current_breadth: 0, alert: false}
     ]
 };
 
 const initial_db_setup_input: IDatabseSetupInput = {
     queries  : qrs,
     locations: {minionLocation: ""},
-    device: {device: ""}
+    device: {device: ""},
+    fileType: 'FASTQ'
 };
 
 
