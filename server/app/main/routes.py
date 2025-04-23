@@ -13,7 +13,8 @@ from .utils import LinuxNotification
 
 logger = logging.getLogger('nanocas')
 
-nanocas_DIR = os.path.join(os.path.expanduser('~'), '.nanocas')
+NANOCAS_DIR = os.path.join(os.path.expanduser('~'), '.nanocas')
+CACHE_PATH = os.path.join(os.path.expanduser('~'), '.nanocas/.cache') # Add to CONFIG
 
 @main.route('/version', methods=['GET'])
 def version():
@@ -37,10 +38,10 @@ def get_timeline_info():
         return jsonify({'message': 'Timeline info not found'}), 404
 
 def get_nanocas_cache_path():
-    return os.path.join(nanocas_DIR, '.cache')
+    return os.path.join(NANOCAS_DIR, '.cache')
 
 def get_analysis_timeline_path():
-    return os.path.join(nanocas_DIR, 'analysis.timeline')
+    return os.path.join(NANOCAS_DIR, 'analysis.timeline')
 
 def write_to_cache(uid, minION_location, uid_dir):
     entry = f"{uid}\t{minION_location}\t{uid_dir}\n"
@@ -61,7 +62,7 @@ def get_uid():
             if uid in cache_fs.read():
                 uid = str(uuid.uuid4())  # In case of collision, generate a new UUID
 
-    uid_dir = os.path.join(nanocas_DIR, uid)
+    uid_dir = os.path.join(NANOCAS_DIR, uid)
     write_to_cache(uid, minION_location, uid_dir)
 
     return jsonify({'uid': uid})
@@ -69,15 +70,15 @@ def get_uid():
 @main.route('/get_all_analyses', methods=['GET'])
 def get_all_analyses():
     if request.method == "GET":
-        nanocas_cache_file = os.path.join(os.path.expanduser('~'), '.nanocas/.cache') # Add to CONFIG
         data = []
-        with open(nanocas_cache_file, 'r') as cache_fs:
+        validate_cache()
+        with open(CACHE_PATH, 'r') as cache_fs:
             for line in cache_fs:
-                [projectId, minion_dir, nanocas_dir] = line.split("\t")
+                [projectId, minion_dir, NANOCAS_DIR] = line.split("\t")
                 data.append({
                     "id"        : projectId,
                     "minion_dir": minion_dir,
-                    "nanocas_dir" : nanocas_dir
+                    "NANOCAS_DIR" : NANOCAS_DIR
                 })
 
         return json.dumps({
@@ -92,9 +93,8 @@ def delete_analyses():
 
     # Get Post Data
     uid = request.form['uid']
-    nanocas_cache_file = os.path.join(os.path.expanduser('~'), '.nanocas/.cache') # Add to CONFIG
     found = False
-    with open(nanocas_cache_file, 'r+') as cache_fs:
+    with open(CACHE_PATH, 'r+') as cache_fs:
         filtered_lines = []
         for line in cache_fs:
             if uid not in line:
@@ -123,8 +123,8 @@ def get_analysis_info():
 
         # get minion and nanocas location
         nanocas_path = ""
-        nanocas_cache_file = os.path.join(os.path.expanduser('~'), '.nanocas/.cache') # Add to CONFIG
-        with open(nanocas_cache_file, 'r') as cache_fs:
+        validate_cache()
+        with open(CACHE_PATH, 'r') as cache_fs:
             found = False
             for line in cache_fs:
                 entry = line.split("\t")
@@ -234,11 +234,11 @@ def validate_locations():
 @main.route('/get_coverage', methods=['GET'])
 def get_coverage():
     project_id = request.args.get('projectId')
-    coverage_file = os.path.join(nanocas_DIR, project_id, 'coverage.csv')
+    coverage_file = os.path.join(NANOCAS_DIR, project_id, 'coverage.csv')
     if not os.path.exists(coverage_file):
         return jsonify({'error': 'Coverage file not found'}), 404
 
-    alert_cfg_file = os.path.join(nanocas_DIR, project_id, 'alertinfo.cfg')
+    alert_cfg_file = os.path.join(NANOCAS_DIR, project_id, 'alertinfo.cfg')
     try:
         with open(alert_cfg_file, 'r') as f:
             alert_cfg = json.load(f)
@@ -280,3 +280,11 @@ def index_devices():
                     LinuxNotification.send_notification(device.name, "Device discovered by nanocas", severity=1)
         
         return json.dumps(devices)
+    
+def validate_cache(cache_path=CACHE_PATH):
+    if not os.path.isfile(cache_path):
+        if not os.path.isdir(NANOCAS_DIR):
+            os.mkdir(NANOCAS_DIR)
+        open(CACHE_PATH, 'a').close()
+        logger.warning(f"No cache found! Generated empty cache file...")
+    pass
