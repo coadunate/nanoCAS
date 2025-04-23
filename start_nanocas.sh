@@ -4,6 +4,7 @@
 # otherwise change this to be the fully qualified path to the nanocas folder
 # export nanocas_PATH=/path/to/nanocas
 export nanocas_PATH=`pwd`
+date_stamp=$(date +'%d_%m_%Y_%H_%M')
 
 ## 0.0 HELPFUL FUNCTIONS ##
 find_in_conda_env() {
@@ -11,9 +12,11 @@ find_in_conda_env() {
 }
 
 activate_conda_env() {
+  if [ "$$CONDA_DEFAULT_ENV" != "nanocas" ]; then
     eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
     conda activate "nanocas"
-    debug "Now in conda environment: $CONDA_DEFAULT_ENV"
+    debug "Conda environment changed to: $CONDA_DEFAULT_ENV"
+  fi
 }
 
 print_and_run_cmd() {
@@ -21,28 +24,37 @@ print_and_run_cmd() {
     ${1}
 }
 
+# Step 1
 start_redis () {
     cd ${nanocas_PATH}/server/app/main/utils
     activate_conda_env
-    redis-server &
+    redis-server > ${nanocas_PATH}/logs/redis_log_${date_stamp}.txt 2>&1 &
 }
 
+# Step 2
+start_python () {
+    cd ${nanocas_PATH}
+    activate_conda_env
+    python server/nanocas.py > ${nanocas_PATH}/logs/python_log_${date_stamp}.txt 2>&1 &
+}
+
+# Step 3
 start_celery () {
     cd ${nanocas_PATH}/server/app/main/utils
     activate_conda_env
-    celery -A tasks worker --loglevel=INFO &
+    celery -A tasks worker --loglevel=INFO > ${nanocas_PATH}/logs/celery_log_${date_stamp}.txt 2>&1 &
 }
 
-start_flask () {
-    cd ${nanocas_PATH}
-    activate_conda_env
-    python server/nanocas.py &
-}
-
+# Step 4
 start_node () {
-    cd ${nanocas_PATH}/frontend
-    npm install
-    npm run start &
+    cd ${nanocas_PATH}/frontend d
+    npm install > ${nanocas_PATH}/logs/node_log_${date_stamp}.txt 2>&1 &
+
+    # Checks if host is equal to "localhost". Can cause problems on some systems if not set to "localhost".
+    if [ "$HOST" != "localhost" ]; then
+      export HOST="localhost"
+    fi
+    npm run start > ${nanocas_PATH}/logs/node_log_${date_stamp}.txt 2>&1 &
 }
 
 # print a debug message
@@ -107,7 +119,7 @@ fi
 # create nanocas start script using osascript
 
 start_redis
-start_flask
+start_python
 start_celery
 start_node
 wait
