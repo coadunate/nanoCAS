@@ -277,14 +277,14 @@ We welcome contributions to nanoCAS! Please follow these steps:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+CC-BY
 
 ## Citation
 
 If you use nanoCAS in your research, please cite:
 
 ```
-Soomro T., Horovatin S., Dumonceaux T.J., Links M.G. (2025) nanoCAS: A real-time monitoring tool for Nanopore sequencing data. (in-preparation)
+Soomro T, Horovatin S, Dumonceaux TJ, Links MG. (2025) nanoCAS: A real-time monitoring tool for Nanopore sequencing data. Manuscript in preparation for BMC Bioinformatics.
 ```
 
 Acknowledgments
