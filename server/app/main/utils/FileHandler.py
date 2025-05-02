@@ -8,6 +8,7 @@ import time
 import glob
 import pysam
 from watchdog.events import FileSystemEventHandler
+from app import socketio
 from .LinuxNotification import LinuxNotification
 
 logger = logging.getLogger('nanocas')
@@ -18,11 +19,15 @@ class FileHandler(FileSystemEventHandler):
         self.num_files_classified = 0
         self.merged_bam = os.path.join(self.app_loc, 'merged.bam')
         self.coverage_file = os.path.join(self.app_loc, 'coverage.csv')
-        # Load configuration to get expected file type
+        self.processed_files_path = os.path.join(self.app_loc, 'processed_files.txt')
+        self.processed_files = set()
+        # Load previously processed files
+        if os.path.exists(self.processed_files_path):
+            with open(self.processed_files_path, 'r') as f:
+                self.processed_files = set(f.read().splitlines())
         with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
             self.config = json.load(f)
-        self.file_type = self.config.get('fileType', 'FASTQ')  # Default to FASTQ if not specified
-        # Initialize coverage file with headers if it doesn’t exist
+        self.file_type = self.config.get('fileType', 'FASTQ')
         if not os.path.exists(self.coverage_file):
             with open(self.coverage_file, 'w') as f:
                 f.write("timestamp,reference,avg_depth,breadth,read_count\n")
@@ -32,10 +37,13 @@ class FileHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         src_path = event.src_path
+        if src_path in self.processed_files:
+            logger.debug(f"Skipping already processed file: {src_path}")
+            return
         if not self.wait_for_file_stability(src_path):
             logger.error(f"File {src_path} is not stable, skipping.")
             return
-        if self.file_type == 'FASTQ' and src_path.endswith((".fastq", ".fasta")):
+        if self.file_type == 'FASTQ' and src_path.endswith((".fastq", ".fasta", ".fastq.gz", ".fq.gz")):
             logger.debug(f'Processing FASTQ file: {src_path}')
             self.process_fastq_file(src_path)
         elif self.file_type == 'BAM' and src_path.endswith(".bam"):
@@ -43,6 +51,10 @@ class FileHandler(FileSystemEventHandler):
             self.process_bam_file(src_path)
         else:
             logger.debug(f"Ignoring file {src_path} as it does not match expected type {self.file_type}")
+        # Mark file as processed
+        self.processed_files.add(src_path)
+        with open(self.processed_files_path, 'a') as f:
+            f.write(src_path + '\n')
 
     def wait_for_file_stability(self, file_path, timeout=60, interval=1):
         """Ensure file is fully written by checking size stability."""
@@ -163,7 +175,6 @@ class FileHandler(FileSystemEventHandler):
             logger.debug(f"Coverage and read counts recorded at {timestamp}")
 
             # Emit coverage update via Socket.IO
-            from .. import socketio
             socketio.emit('coverage_update', {
                 'projectId': self.config.get('projectId', ''),
                 'timestamp': timestamp,
