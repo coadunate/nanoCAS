@@ -10,6 +10,7 @@ import pysam
 from watchdog.events import FileSystemEventHandler
 from app import socketio
 from .LinuxNotification import LinuxNotification
+from .email import send_email
 
 logger = logging.getLogger('nanocas')
 
@@ -165,6 +166,7 @@ class FileHandler(FileSystemEventHandler):
                 read_count = bam.count(ref)  # Count reads mapping to this reference
                 coverage_data[ref] = {"avg_depth": avg_depth, "breadth": breadth, "read_count": read_count}
                 # Check if breadth exceeds the threshold and trigger alert if necessary
+                print(f"Reference: {ref}, Avg Depth: {avg_depth:.2f}, Breadth: {breadth:.2f}%, Read Count: {read_count}")
                 self.check_breadth_alert(ref, breadth)
             bam.close()
 
@@ -184,25 +186,43 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"Error calculating coverage: {e}")
 
     def check_breadth_alert(self, ref: str, breadth: float):
-        """Check if breadth coverage exceeds the threshold and trigger alert if necessary."""
+        print(f"Checking breadth alert for {ref} with breadth {breadth:.2f}%")
         alertinfo_cfg_file = os.path.join(self.app_loc, 'alertinfo.cfg')
         try:
             with open(alertinfo_cfg_file, 'r') as f:
                 alertinfo_cfg_data = json.load(f)
             queries = alertinfo_cfg_data.get("queries", [])
             device = alertinfo_cfg_data.get("device", "")
+            print(alertinfo_cfg_data)
             for query in queries:
+                print(f"Checking query: {query}")
                 if ref == query.get("header", ""):
+                    print(f"Matched query: {query}")
                     threshold = float(query.get("threshold", 0))
                     current_breadth = query.get("current_breadth", 0)
-                    if breadth > current_breadth:  # Update if new breadth is higher
-                        query["current_breadth"] = breadth
-                        with open(alertinfo_cfg_file, 'w') as f:
-                            json.dump(alertinfo_cfg_data, f, indent=4)
+                    # Check alert condition before updating current_breadth
                     if breadth >= threshold and current_breadth < threshold:
                         alert_str = f"Alert: {query['name']} breadth coverage reached {breadth:.2f}% (threshold: {threshold}%)"
                         logger.critical(alert_str)
                         if device:
                             LinuxNotification.send_notification(device, alert_str)
+                        if "alertNotifConfig" in alertinfo_cfg_data:
+                            print("Sending email")
+                            email_config = alertinfo_cfg_data['alertNotifConfig']
+                            subject = "nanoCAS Alert"
+                            body = alert_str
+                            send_email(subject, body, email_config)
+                        else:
+                            print("No email config found")
+                            logger.error("No email config found in alertinfo.cfg")
+                            
+                    # Update current_breadth after checking
+                    if breadth > current_breadth:
+                        query["current_breadth"] = breadth
+                        with open(alertinfo_cfg_file, 'w') as f:
+                            json.dump(alertinfo_cfg_data, f, indent=4)
+                else:
+                    print(f"No match for query: {query}")
+                    logger.debug(f"No match for query: {query}")
         except Exception as e:
             logger.error(f"Error checking breadth alert: {e}")

@@ -2,6 +2,7 @@ import React, {useState} from "react";
 
 import {ISteps} from "./setup.interfaces";
 import DatabaseSetupComponent from "./setup-steps/database-setup/database-setup.component";
+import AlertNotifSetupComponent from './setup-steps/alert-notif-setup/alert-notif-setup.component';
 import SummaryComponent from "./setup-steps/summary/summary.component";
 import "./setup.component.css";
 import {
@@ -10,6 +11,7 @@ import {
 import {
     IDatabseSetupInput
 } from "./setup-steps/database-setup/database-setup.interfaces";
+import {IAlertNotifSetupInput} from "./setup-steps/alert-notif-setup/alert-notif-setup.interfaces";
 
 
 const qrs: IAdditionalSequences = {
@@ -25,11 +27,20 @@ const initial_db_setup_input: IDatabseSetupInput = {
     fileType: 'FASTQ'
 };
 
+const initil_alert_notif_setup_input : IAlertNotifSetupInput = {
+    sender: '',
+    recipient: '',
+    smtpServer: '',
+    smtpPort: 587,
+    password: '',
+}
+
 
 const SetupComponent = () => {
     const [stepNumber, setStepNumber] = useState(0);
     const [databaseSetupInput, setDatasetSetupInput] = useState(initial_db_setup_input);
-
+    const [alertNotifSetupInput, setAlertNotifSetupInput] = useState(initil_alert_notif_setup_input);
+ 
     const advanceStep = () => {
 
         // if we still have steps left
@@ -40,12 +51,16 @@ const SetupComponent = () => {
 
     const steps: ISteps[] = [
         {
-            name: "Create Database",
+            name: "alert database",
             component: <DatabaseSetupComponent advanceStep={advanceStep} update={setDatasetSetupInput} />,
         },
         {
-            name: "Summary",
-            component: <SummaryComponent databaseSetupInput={databaseSetupInput}/>
+            name: "notification",
+            component: <AlertNotifSetupComponent advanceStep={advanceStep} update={setAlertNotifSetupInput} />,
+        },
+        {
+            name: "summary",
+            component: <SummaryComponent databaseSetupInput={databaseSetupInput} alertNotifSetupInput={alertNotifSetupInput} />
         }
     ]
 
@@ -53,7 +68,7 @@ const SetupComponent = () => {
         <div className="container-fluid d-flex flex-column">
             <div className="vspacer-50"/>
             <div className="container-fluid text-center">
-                <h3>nanocas Setup Wizard</h3>
+                <h3>nanoCAS Setup Wizard</h3>
                 <p>Step {stepNumber + 1} of {steps.length}</p>
             </div>
             <div className="vspacer-20"/>

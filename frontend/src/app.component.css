@@ -10,6 +10,12 @@
 
 .border-black { border: 2px solid black;}
 
+.border-green { border: 2px solid green;}
+.border-red { border: 2px solid red;}
+.border-blue { border: 2px solid blue;}
+.border-orange { border: 2px solid orange;}
+.border-purple { border: 2px solid purple;}
+
 body {
   margin: 0;
   font-family: var(--ont-font-primary);

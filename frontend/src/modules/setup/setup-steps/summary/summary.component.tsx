@@ -3,6 +3,7 @@ import { IDatabseSetupInput, ILocationConfig } from "../database-setup/database-
 import { IQuery } from "../database-setup/additional-sequences-setup/additional-sequences-setup.interfaces";
 import axios from "axios";
 import { socket } from "../../../../app.component";
+import { IAlertNotifSetupInput } from '../alert-notif-setup/alert-notif-setup.interfaces';
 
 const VALIDATION_STATES = {
     NOT_STARTED: 0,
@@ -13,6 +14,7 @@ const VALIDATION_STATES = {
 
 type ISummaryComponentProps = {
     databaseSetupInput: IDatabseSetupInput
+    alertNotifSetupInput: IAlertNotifSetupInput
 }
 
 const validateLocations = (queries: IQuery[], locations: ILocationConfig) => {
@@ -44,7 +46,7 @@ const getUniqueUID = (locations: ILocationConfig) => {
     })
 }
 
-const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseSetupInput }) => {
+const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseSetupInput, alertNotifSetupInput }) => {
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
     const [validationState, setValidationState] = useState(VALIDATION_STATES.NOT_STARTED);
@@ -77,7 +79,8 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                     queries: add_databases,
                     projectId: newUID,
                     device: databaseSetupInput.device.device,
-                    fileType: databaseSetupInput.fileType
+                    fileType: databaseSetupInput.fileType,
+                    alertNotifConfig: alertNotifSetupInput
                 };
 
                 socket.emit('log', dbInfo, "DEBUG");
@@ -131,6 +134,17 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 <tr><th>Sequencing Device</th><td colSpan={2}>{databaseSetupInput.device.device || "Not provided"}</td></tr>
                 <tr><th>File Type</th><td colSpan={2}>{databaseSetupInput.fileType}</td></tr>
                 </tbody>
+                <thead className="thead-light">
+                <tr><th colSpan={3}>Alert Notification</th></tr>
+                </thead>
+                <tbody>
+                <tr><th>Sender</th><td colSpan={2}>{alertNotifSetupInput.sender}</td></tr>
+                <tr><th>Recipient</th><td colSpan={2}>{alertNotifSetupInput.recipient}</td></tr>
+                <tr><th>SMTP Server</th><td colSpan={2}>{alertNotifSetupInput.smtpServer}</td></tr>
+                <tr><th>SMTP Port</th><td colSpan={2}>{alertNotifSetupInput.smtpPort}</td></tr>
+                <tr><th>Password</th><td colSpan={2}>{alertNotifSetupInput.password}</td></tr>
+                </tbody>
+
             </table>
             <div className="vspacer-20" />
             <button className="btn btn-primary" disabled={started} onClick={(e) => initiateDatabaseCreation(e)}>

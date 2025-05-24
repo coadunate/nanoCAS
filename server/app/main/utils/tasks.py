@@ -41,10 +41,15 @@ def int_download_database(self, db_data, nanocas_location, queries):
                 input_sequences.write('\n')
 
             # get the fasta header and add it into the alertinfo.cfg file
-            cmd = "grep '^>' " + query['file']
-            fasta_header = os.popen('grep "^>" ' + cmd).read().strip().split(">")[1]
+            fasta_header = ""
+            with open(query['file'], 'r') as f:
+                for line in f:
+                    if line.startswith('>'):
+                        fasta_header = line[1:].strip()
+                        break
+            # Remove any newline or whitespace characters from fasta_header
+            fasta_header = fasta_header.strip()
 
-            # update the alertinfo object to include fasta_header
             alertinfo_cfg_file = os.path.join(nanocas_location, 'alertinfo.cfg')
             logger.debug(f"Debug: Alert info file: {alertinfo_cfg_file}")
             with open(alertinfo_cfg_file, 'r') as alertinfo_fs:
