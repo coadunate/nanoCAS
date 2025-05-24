@@ -52,7 +52,7 @@ const SetupComponent = () => {
     return (
         <div className="container-fluid d-flex flex-column">
             <div className="vspacer-50"/>
-            <div className="container text-center">
+            <div className="container-fluid text-center">
                 <h3>nanocas Setup Wizard</h3>
                 <p>Step {stepNumber + 1} of {steps.length}</p>
             </div>

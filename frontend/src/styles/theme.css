@@ -32,7 +32,7 @@
   --ont-font-size-md: 1rem;
   --ont-font-size-lg: 1.125rem;
   --ont-font-size-xl: 1.25rem;
-  --ont-font-size-2xl: 1.5rem;
+  --ont-font-size-2xl: 2.5rem;
   --ont-font-size-3xl: 1.875rem;
   --ont-font-size-4xl: 2.25rem;
   
@@ -69,7 +69,7 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--ont-font-heading);
-  font-weight: 600;
+  font-weight: 900;
   color: var(--ont-primary);
   margin-top: 0;
 }

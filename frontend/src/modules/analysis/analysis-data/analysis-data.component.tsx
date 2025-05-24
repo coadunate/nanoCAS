@@ -72,15 +72,29 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const formatCoverageData = () => {
         const refs = [...new Set(coverageData.map(d => d.reference))];
         const times = [...new Set(coverageData.map(d => d.timestamp))].sort();
-        const header = ["Time", ...refs];
+        const startTime = new Date(times[0]).getTime(); // Earliest timestamp in milliseconds
+    
+        // Define the header with column types and roles
+        const header = [{ type: 'number', label: 'Elapsed Time (s)' }];
+        refs.forEach(ref => {
+            header.push({ type: 'number', label: ref });
+            header.push({ type: 'string', role: 'tooltip' });
+        });
+    
+        // Create data rows with elapsed time and tooltips
         const rows = times.map(time => {
-            const row = [time];
+            const elapsedSeconds = (new Date(time).getTime() - startTime) / 1000; // Convert to seconds
+            const row = [elapsedSeconds];
             refs.forEach(ref => {
                 const entry = coverageData.find(d => d.timestamp === time && d.reference === ref);
-                row.push(entry ? entry[metric] : 0);
+                const y = entry ? entry[metric] : 0;
+                const tooltip = `Time: ${time}\n${ref}: ${y.toFixed(2)}`;
+                row.push(y);
+                row.push(tooltip);
             });
             return row;
         });
+    
         return [header, ...rows];
     };
 
@@ -137,7 +151,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                         </div>
                         <div className="nano-info-item">
                             <span className="nano-info-label">MinION Path</span>
-                            <span className="nano-info-value">{analysisData.data.minion}</span>
+                            <span className="nano-info-value">{analysisData.data.minion.split("/").filter(component => component !== '').join(' ➩ ')}</span>
                         </div>
                         <div className="nano-info-item">
                             <span className="nano-info-label">Device</span>
@@ -154,11 +168,11 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                     <div className="nano-actions">
                         {listenerRunning ? (
                             <button className="btn btn-danger nano-btn" onClick={handleStopFileListener}>
-                                <i className="fas fa-stop"></i> Stop File Listener
+                                <i className="fas fa-stop"></i> Stop Analysis
                             </button>
                         ) : (
                             <button className="btn btn-primary nano-btn" onClick={handleStartFileListener}>
-                                <i className="fas fa-play"></i> Start File Listener
+                                <i className="fas fa-play"></i> Start Analysis
                             </button>
                         )}
                         <button className="btn btn-outline-danger nano-btn" onClick={handleRemoveAnalysis}>
@@ -188,13 +202,13 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                             data={formatCoverageData()}
                             options={{
                                 title: metric === 'avg_depth' ? 'Average Coverage Depth Over Time' : 'Breadth of Coverage Over Time',
-                                hAxis: { title: "Time" },
+                                hAxis: { title: 'Elapsed Time (s)' },
                                 vAxis: { 
                                     title: metric === 'avg_depth' ? 'Average Depth (reads/position)' : 'Breadth (%)', 
                                     minValue: 0,
                                     maxValue: metric === 'breadth' ? 100 : undefined
                                 },
-                                legend: { position: "bottom" },
+                                legend: { position: 'bottom' },
                                 colors: ['#00B0BD', '#004E5A', '#FF6A45', '#27AE60'],
                                 chartArea: { width: '80%', height: '70%' },
                                 animation: { startup: true, duration: 1000, easing: 'out' }
