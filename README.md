@@ -59,6 +59,32 @@ python setup.py
 
 This will start the application with the default configuration. The frontend will be available at http://localhost:3000 and the backend at http://localhost:5007.
 
+## Setting Up Twilio for SMS Alerts
+
+nanoCAS supports sending SMS alerts using Twilio when a sequence of interest meets the specified coverage threshold. Since nanoCAS is open-source, you’ll need to set up your own Twilio account and configure it yourself. Follow these steps to enable SMS notifications:
+
+### 1. Create a Twilio Account
+- Visit [Twilio's website](https://www.twilio.com/try-twilio) and sign up for a free account.
+- Complete the verification process by providing your email and phone number.
+
+### 2. Obtain a Twilio Phone Number
+- Log in to your Twilio Console at [https://console.twilio.com/](https://console.twilio.com/).
+- Navigate to the **"Phone Numbers"** section under **"All Products & Services"**.
+- Click **"Buy a Number"**, search for a number that supports SMS (check the capabilities), and purchase it.
+- Note down your Twilio phone number (e.g., `+12345678901`).
+
+### 3. Get Your Account SID and Auth Token
+- In the Twilio Console dashboard, locate your **"Account SID"** and **"Auth Token"** under the **"Account Info"** section.
+- These credentials are required to authenticate API requests. Keep them secure.
+
+### 4. Configure the `.env` File
+- In the root directory of your nanoCAS project, create or edit the `.env` file to include the following Twilio configuration:
+  ```plaintext
+  TWILIO_ACCOUNT_SID=your_account_sid
+  TWILIO_AUTH_TOKEN=your_auth_token
+  TWILIO_PHONE_NUMBER=your_twilio_phone_number
+  ALERT_RECIPIENT_PHONE=recipient_phone_number
+
 ### Manual Installation
 
 For environments where Docker is not available or for development purposes:

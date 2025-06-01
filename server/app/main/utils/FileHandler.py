@@ -11,6 +11,7 @@ from watchdog.events import FileSystemEventHandler
 from app import socketio
 from .LinuxNotification import LinuxNotification
 from .email import send_email
+from .sms import send_sms
 
 logger = logging.getLogger('nanocas')
 
@@ -186,6 +187,7 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"Error calculating coverage: {e}")
 
     def check_breadth_alert(self, ref: str, breadth: float):
+        """Check if breadth exceeds threshold and send alerts."""
         print(f"Checking breadth alert for {ref} with breadth {breadth:.2f}%")
         alertinfo_cfg_file = os.path.join(self.app_loc, 'alertinfo.cfg')
         try:
@@ -206,16 +208,20 @@ class FileHandler(FileSystemEventHandler):
                         logger.critical(alert_str)
                         if device:
                             LinuxNotification.send_notification(device, alert_str)
+                        # Send alerts if configured
                         if "alertNotifConfig" in alertinfo_cfg_data:
                             print("Sending email")
                             email_config = alertinfo_cfg_data['alertNotifConfig']
                             subject = "nanoCAS Alert"
                             body = alert_str
                             send_email(subject, body, email_config)
+                        # Send SMS via Twilio if configured in .env
+                        if os.getenv('TWILIO_ACCOUNT_SID'):
+                            print("Sending SMS")
+                            send_sms(alert_str)
                         else:
-                            print("No email config found")
-                            logger.error("No email config found in alertinfo.cfg")
-                            
+                            print("Twilio not configured; skipping SMS")
+                            logger.debug("Twilio not configured in .env; SMS skipped")
                     # Update current_breadth after checking
                     if breadth > current_breadth:
                         query["current_breadth"] = breadth

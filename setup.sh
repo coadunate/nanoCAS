@@ -143,6 +143,16 @@ EOF
         echo "ENABLE_DISTRIBUTED=false" >> .env
     fi
 
+    # Optional Twilio configuration
+    if [ -n "$TWILIO_ACCOUNT_SID" ] && [ -n "$TWILIO_AUTH_TOKEN" ] && [ -n "$TWILIO_PHONE_NUMBER" ] && [ -n "$ALERT_RECIPIENT_PHONE" ]; then
+        cat >> .env << EOF
+TWILIO_ACCOUNT_SID=$TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN=$TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER=$TWILIO_PHONE_NUMBER
+ALERT_RECIPIENT_PHONE=$ALERT_RECIPIENT_PHONE
+EOF
+    fi
+
     # Start the containers
     if [ "$ENV" == "production" ]; then
         docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -176,6 +186,16 @@ EOF
         echo "ENABLE_DISTRIBUTED=true" >> .env
     else
         echo "ENABLE_DISTRIBUTED=false" >> .env
+    fi
+
+    # Optional Twilio configuration
+    if [ -n "$TWILIO_ACCOUNT_SID" ] && [ -n "$TWILIO_AUTH_TOKEN" ] && [ -n "$TWILIO_PHONE_NUMBER" ] && [ -n "$ALERT_RECIPIENT_PHONE" ]; then
+        cat >> .env << EOF
+TWILIO_ACCOUNT_SID=$TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN=$TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER=$TWILIO_PHONE_NUMBER
+ALERT_RECIPIENT_PHONE=$ALERT_RECIPIENT_PHONE
+EOF
     fi
     
     echo "Local setup complete."
