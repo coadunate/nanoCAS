@@ -78,13 +78,13 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         const header = [{ type: 'number', label: 'Elapsed Time (s)' }];
         refs.forEach(ref => {
             header.push({ type: 'number', label: ref });
-            header.push({ type: 'string', role: 'tooltip' });
+            header.push({ type: 'string', label: '' }); // Tooltip column, no 'role' property
         });
     
         // Create data rows with elapsed time and tooltips
         const rows = times.map(time => {
             const elapsedSeconds = (new Date(time).getTime() - startTime) / 1000; // Convert to seconds
-            const row = [elapsedSeconds];
+            const row: any[] = [elapsedSeconds];
             refs.forEach(ref => {
                 const entry = coverageData.find(d => d.timestamp === time && d.reference === ref);
                 const y = entry ? entry[metric] : 0;
