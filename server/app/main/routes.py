@@ -255,13 +255,12 @@ def get_coverage():
             lines = f.readlines()[1:]  # Skip header
         data = []
         for line in lines:
-            timestamp, ref, avg_depth, breadth, read_count = line.strip().split(',')
+            timestamp, ref, fold_coverage, read_count = line.strip().split(',')
             name = ref_to_name.get(ref, ref)  # Map reference to alert sequence name
             data.append({
                 'timestamp': timestamp,
                 'reference': name,
-                'avg_depth': float(avg_depth),
-                'breadth': float(breadth),
+                'fold_coverage': float(fold_coverage),
                 'read_count': int(read_count)
             })
         return jsonify(data)

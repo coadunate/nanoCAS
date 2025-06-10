@@ -32,7 +32,7 @@ class FileHandler(FileSystemEventHandler):
         self.file_type = self.config.get('fileType', 'FASTQ')
         if not os.path.exists(self.coverage_file):
             with open(self.coverage_file, 'w') as f:
-                f.write("timestamp,reference,avg_depth,breadth,read_count\n")
+                f.write("timestamp,reference,fold_coverage,read_count\n")
 
     def on_moved(self, event):
         self.on_any_event(event)
@@ -150,7 +150,7 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"Error sorting/indexing merged BAM: {e}")
 
     def calculate_and_record_coverage(self):
-        """Calculate and record average depth, breadth of coverage, and read count per reference."""
+        """Calculate and record fold coverage (average depth) and read count per reference."""
         try:
             bam = pysam.AlignmentFile(self.merged_bam, "rb", check_sq=False)
             if not bam.has_index():
@@ -159,22 +159,23 @@ class FileHandler(FileSystemEventHandler):
             coverage_data = {}
             for ref in bam.references:
                 ref_length = bam.lengths[bam.references.index(ref)]
-                pileup = bam.pileup(ref)
-                depths = [p.nsegments for p in pileup if p.nsegments > 0]
-                covered_positions = len(depths)
-                avg_depth = sum(depths) / len(depths) if depths else 0
-                breadth = (covered_positions / ref_length) * 100 if ref_length > 0 else 0
+                # Get coverage depth across all positions for this reference
+                coverage = bam.count_coverage(ref)
+                # Sum depths across all bases (A, C, G, T) at each position
+                total_depth = sum(sum(cov) for cov in coverage)
+                # Calculate fold coverage as total depth divided by reference length
+                fold_coverage = total_depth / ref_length if ref_length > 0 else 0
                 read_count = bam.count(ref)  # Count reads mapping to this reference
-                coverage_data[ref] = {"avg_depth": avg_depth, "breadth": breadth, "read_count": read_count}
-                # Check if breadth exceeds the threshold and trigger alert if necessary
-                print(f"Reference: {ref}, Avg Depth: {avg_depth:.2f}, Breadth: {breadth:.2f}%, Read Count: {read_count}")
-                self.check_breadth_alert(ref, breadth)
+                coverage_data[ref] = {"fold_coverage": fold_coverage, "read_count": read_count}
+                print(f"Reference: {ref}, Fold Coverage: {fold_coverage:.2f}x, Read Count: {read_count}")
+                # Update alert check to use fold coverage if needed
+                self.check_fold_coverage_alert(ref, fold_coverage)
             bam.close()
 
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
             with open(self.coverage_file, 'a') as f:
                 for ref, cov in coverage_data.items():
-                    f.write(f"{timestamp},{ref},{cov['avg_depth']},{cov['breadth']},{cov['read_count']}\n")
+                    f.write(f"{timestamp},{ref},{cov['fold_coverage']},{cov['read_count']}\n")
             logger.debug(f"Coverage and read counts recorded at {timestamp}")
 
             # Emit coverage update via Socket.IO
@@ -186,49 +187,22 @@ class FileHandler(FileSystemEventHandler):
         except Exception as e:
             logger.error(f"Error calculating coverage: {e}")
 
-    def check_breadth_alert(self, ref: str, breadth: float):
-        """Check if breadth exceeds threshold and send alerts."""
-        print(f"Checking breadth alert for {ref} with breadth {breadth:.2f}%")
-        alertinfo_cfg_file = os.path.join(self.app_loc, 'alertinfo.cfg')
-        try:
-            with open(alertinfo_cfg_file, 'r') as f:
-                alertinfo_cfg_data = json.load(f)
-            queries = alertinfo_cfg_data.get("queries", [])
-            device = alertinfo_cfg_data.get("device", "")
-            print(alertinfo_cfg_data)
-            for query in queries:
-                print(f"Checking query: {query}")
-                if ref == query.get("header", ""):
-                    print(f"Matched query: {query}")
-                    threshold = float(query.get("threshold", 0))
-                    current_breadth = query.get("current_breadth", 0)
-                    # Check alert condition before updating current_breadth
-                    if breadth >= threshold and current_breadth < threshold:
-                        alert_str = f"Alert: {query['name']} breadth coverage reached {breadth:.2f}% (threshold: {threshold}%)"
-                        logger.critical(alert_str)
-                        if device:
-                            LinuxNotification.send_notification(device, alert_str)
-                        # Send alerts if configured
-                        if "alertNotifConfig" in alertinfo_cfg_data:
-                            print("Sending email")
-                            email_config = alertinfo_cfg_data['alertNotifConfig']
-                            subject = "nanoCAS Alert"
-                            body = alert_str
-                            send_email(subject, body, email_config)
-                        # Send SMS via Twilio if configured in .env
-                        if os.getenv('TWILIO_ACCOUNT_SID'):
-                            print("Sending SMS")
-                            send_sms(alert_str)
-                        else:
-                            print("Twilio not configured; skipping SMS")
-                            logger.debug("Twilio not configured in .env; SMS skipped")
-                    # Update current_breadth after checking
-                    if breadth > current_breadth:
-                        query["current_breadth"] = breadth
-                        with open(alertinfo_cfg_file, 'w') as f:
-                            json.dump(alertinfo_cfg_data, f, indent=4)
-                else:
-                    print(f"No match for query: {query}")
-                    logger.debug(f"No match for query: {query}")
-        except Exception as e:
-            logger.error(f"Error checking breadth alert: {e}")
+    def check_fold_coverage_alert(self, ref: str, fold_coverage: float):
+        """Check if fold coverage exceeds threshold and send alerts."""
+        with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
+            alertinfo_cfg_data = json.load(f)
+        queries = alertinfo_cfg_data.get("queries", [])
+        device = alertinfo_cfg_data.get("device", "")
+        for query in queries:
+            if ref == query.get("header", ""):
+                threshold = float(query.get("threshold", 0))
+                if fold_coverage >= threshold:
+                    alert_str = f"Alert: {query['name']} fold coverage reached {fold_coverage:.2f}x (threshold: {threshold}x)"
+                    logger.critical(alert_str)
+                    if device:
+                        LinuxNotification.send_notification(device, alert_str)
+                    if "alertNotifConfig" in alertinfo_cfg_data:
+                        email_config = alertinfo_cfg_data['alertNotifConfig']
+                        send_email("nanoCAS Alert", alert_str, email_config)
+                    if os.getenv('TWILIO_ACCOUNT_SID'):
+                        send_sms(alert_str)

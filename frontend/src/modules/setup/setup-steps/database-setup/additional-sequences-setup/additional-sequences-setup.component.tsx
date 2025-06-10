@@ -5,7 +5,7 @@ type IKeys = "name" | "file" | "threshold" | "alert";
 
 const AdditionalSequencesSetupComponent: FunctionComponent<IDatabaseSetupConstituent> = ({ updateConfig }) => {
     const [queries, setQueries] = useState([
-        { name: "", file: "", threshold: "", current_breadth: 0, alert: false }
+        { name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: "" }
     ]);
 
     const handleDataChange = (idx: number, key: IKeys) => (evt: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,7 +23,7 @@ const AdditionalSequencesSetupComponent: FunctionComponent<IDatabaseSetupConstit
             alert("Please fill all fields in the current query before adding a new one.");
             return;
         }
-        setQueries((prev) => [...prev, { name: "", file: "", threshold: "", current_breadth: 0, alert: false }]);
+        setQueries((prev) => [...prev, { name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: "" }]);
     };
 
     const handleRemoveQuery = (idx: number) => () => {
@@ -87,11 +87,10 @@ const AdditionalSequencesSetupComponent: FunctionComponent<IDatabaseSetupConstit
                                     id="thresholdText"
                                     name="thresholdText"
                                     type="number"
-                                    placeholder="Breadth Coverage % Threshold"
+                                    placeholder="Fold Coverage Threshold (x)"
                                     onChange={handleDataChange(i, "threshold")}
                                     className="form-control"
                                     min="0"
-                                    max="100"
                                 />
                             </div>
                             <div className="col-sm-1">

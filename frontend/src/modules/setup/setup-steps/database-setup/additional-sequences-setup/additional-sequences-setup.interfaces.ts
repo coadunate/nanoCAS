@@ -6,8 +6,9 @@ type IQuery = {
     name: string,
     file: string,
     threshold: string,
-    current_breadth: number,
-    alert: boolean
+    current_fold_change: number,
+    alert: boolean,
+    header: string,
 }
 
 export type {

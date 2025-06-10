@@ -16,7 +16,7 @@ import {IAlertNotifSetupInput} from "./setup-steps/alert-notif-setup/alert-notif
 
 const qrs: IAdditionalSequences = {
     queries: [
-        {name: "", file: "", threshold: "", current_breadth: 0, alert: false}
+        {name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: ""},
     ]
 };
 

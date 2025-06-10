@@ -10,8 +10,11 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const [coverageData, setCoverageData] = useState<any[]>([]);
     const [listenerRunning, setListenerRunning] = useState(false);
     const [error, setError] = useState("");
-    const [metric, setMetric] = useState<'avg_depth' | 'breadth'>('avg_depth');
+    const [metric, setMetric] = useState<'fold_coverage'>('fold_coverage');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+    // Extract threshold from the first query, default to 100 if invalid
+    const threshold = data.data.queries[0]?.threshold ? parseFloat(data.data.queries[0].threshold) : 100;
 
     useEffect(() => {
         socket.emit('check_fastq_file_listener', { projectId: analysisData.data.projectId });
@@ -72,29 +75,27 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const formatCoverageData = () => {
         const refs = [...new Set(coverageData.map(d => d.reference))];
         const times = [...new Set(coverageData.map(d => d.timestamp))].sort();
-        const startTime = new Date(times[0]).getTime(); // Earliest timestamp in milliseconds
-    
-        // Define the header with column types and roles
-        const header = [{ type: 'number', label: 'Elapsed Time (s)' }];
+        const startTime = new Date(times[0]).getTime();
+
+        const header = [{ type: 'number', label: 'Elapsed Time (s)', role: '' }];
         refs.forEach(ref => {
-            header.push({ type: 'number', label: ref });
-            header.push({ type: 'string', label: '' }); // Tooltip column, no 'role' property
+            header.push({ type: 'number', label: ref, role: '' });
+            header.push({ type: 'string', label: 'for', role: 'tooltip' });
         });
-    
-        // Create data rows with elapsed time and tooltips
+
         const rows = times.map(time => {
-            const elapsedSeconds = (new Date(time).getTime() - startTime) / 1000; // Convert to seconds
-            const row: any[] = [elapsedSeconds];
+            const elapsedSeconds = (new Date(time).getTime() - startTime) / 1000;
+            const row: (number | string)[] = [elapsedSeconds];
             refs.forEach(ref => {
                 const entry = coverageData.find(d => d.timestamp === time && d.reference === ref);
-                const y = entry ? entry[metric] : 0;
-                const tooltip = `Time: ${time}\n${ref}: ${y.toFixed(2)}`;
+                const y = entry ? entry.fold_coverage : 0;
+                const tooltip = `Time: ${time}\n${ref}: ${y.toFixed(2)}x`;
                 row.push(y);
                 row.push(tooltip);
             });
             return row;
         });
-    
+
         return [header, ...rows];
     };
 
@@ -134,6 +135,23 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
 
     const cancelRemoveAnalysis = () => {
         setShowConfirmModal(false);
+    };
+
+    // Compute number of references for series indexing
+    const refs = [...new Set(coverageData.map(d => d.reference))];
+    const numRefs = refs.length;
+
+    const chartOptions = {
+        title: 'Fold Coverage Over Time',
+        hAxis: { title: 'Elapsed Time (s)' },
+        vAxis: { title: 'Fold Coverage (x)', minValue: 0 },
+        legend: { position: 'bottom' },
+        colors: ['#00B0BD', '#004E5A', '#FF6A45', '#27AE60'],
+        chartArea: { width: '80%', height: '70%' },
+        animation: { startup: true, duration: 1000, easing: 'out' },
+        series: !isNaN(threshold) ? {
+            [numRefs]: { lineDashStyle: [4, 4], color: 'red', lineWidth: 2 }
+        } : {}
     };
 
     return (
@@ -188,10 +206,10 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                     <h3 className="nano-card-title">Coverage Over Time</h3>
                     <select
                         value={metric}
-                        onChange={(e) => setMetric(e.target.value as 'avg_depth' | 'breadth')}
+                        onChange={(e) => setMetric(e.target.value as 'fold_coverage')}
                         className="form-control w-auto d-inline-block ml-2"
                     >
-                        <option value="avg_depth">Average Depth</option>
+                        <option value="fold_coverage">Average Depth</option>
                         <option value="breadth">Breadth of Coverage (%)</option>
                     </select>
                 </div>
@@ -200,19 +218,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                         <Chart
                             chartType="LineChart"
                             data={formatCoverageData()}
-                            options={{
-                                title: metric === 'avg_depth' ? 'Average Coverage Depth Over Time' : 'Breadth of Coverage Over Time',
-                                hAxis: { title: 'Elapsed Time (s)' },
-                                vAxis: { 
-                                    title: metric === 'avg_depth' ? 'Average Depth (reads/position)' : 'Breadth (%)', 
-                                    minValue: 0,
-                                    maxValue: metric === 'breadth' ? 100 : undefined
-                                },
-                                legend: { position: 'bottom' },
-                                colors: ['#00B0BD', '#004E5A', '#FF6A45', '#27AE60'],
-                                chartArea: { width: '80%', height: '70%' },
-                                animation: { startup: true, duration: 1000, easing: 'out' }
-                            }}
+                            options={chartOptions}
                             width="100%"
                             height="400px"
                         />
