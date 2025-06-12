@@ -139,7 +139,7 @@ def get_analysis_info():
                     break
 
         if not found:
-            return json.dumps({'status': 404, 'message': "Couldn't find the analysis data with UID: " + uid})
+            return json.dumps({'status': 404, 'message': "Couldn't find the analysis data with UID: " + str(uid)})
         else:
 
             alert_cfg_file = os.path.join(nanocas_path, 'alertinfo.cfg')
@@ -173,7 +173,7 @@ def analysis():
             # if nanocas_location exists
             if subprocess.call(['ls', nanocas_location + 'alertinfo.cfg']) == 0:
                 # if minion location exists
-                if subprocess.call(['ls', minion]) == 0:
+                if minion is not None and subprocess.call(['ls', minion]) == 0:
                     # locations are valid
 
                     # is another user already on that page? If so, bounce this user
@@ -255,12 +255,13 @@ def get_coverage():
             lines = f.readlines()[1:]  # Skip header
         data = []
         for line in lines:
-            timestamp, ref, fold_coverage, read_count = line.strip().split(',')
+            timestamp, ref, depth, breadth, read_count = line.strip().split(',')
             name = ref_to_name.get(ref, ref)  # Map reference to alert sequence name
             data.append({
                 'timestamp': timestamp,
                 'reference': name,
-                'fold_coverage': float(fold_coverage),
+                'depth': float(depth),
+                'breadth': float(breadth),
                 'read_count': int(read_count)
             })
         return jsonify(data)
@@ -270,18 +271,18 @@ def get_coverage():
 
 @main.route('/index_devices', methods=['GET'])
 def index_devices():
-    if (request.method == 'GET'):
+    if request.method == 'GET':
         devices = []
         indexed_devices = LinuxNotification.index_devices()
-        if len(indexed_devices) > 0:
+        if indexed_devices:
             for device in indexed_devices:
-                if device.state != "STATE_HARDWARE_REMOVED" \
-                    or device.state != "STATE_HARDWARE_ERROR" \
-                    or device.state != "STATE_SOFTWARE_ERROR":
+                if device.state not in ["STATE_HARDWARE_REMOVED", "STATE_HARDWARE_ERROR", "STATE_SOFTWARE_ERROR"]:
                     devices.append(device.name)
                     LinuxNotification.send_notification(device.name, "Device discovered by nanocas", severity=1)
-        
+        # Always return a valid JSON response
         return json.dumps(devices)
+    # Explicitly return an empty list if not GET (should not happen)
+    return json.dumps([])
     
 def validate_cache(cache_path=CACHE_PATH):
     if not os.path.isfile(cache_path):

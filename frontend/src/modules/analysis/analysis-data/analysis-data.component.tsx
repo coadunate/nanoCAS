@@ -1,20 +1,33 @@
-import React, { FunctionComponent, useEffect, useState } from "react";
+import React, { FunctionComponent, useEffect, useState, useMemo } from "react";
 import { IAnalysisDataProps } from "./analysis-data.interfaces";
 import { socket } from "../../../app.component";
 import { Chart } from "react-google-charts";
 import axios from "axios";
+import { Dropdown, Modal, Button } from "react-bootstrap";
 import './analysis-data.component.css';
+
+const POLLING_INTERVAL_MS = 10000;
 
 const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) => {
     const [analysisData, setAnalysisData] = useState(data);
     const [coverageData, setCoverageData] = useState<any[]>([]);
+    const [coverageMap, setCoverageMap] = useState(new Map<string, any>());
     const [listenerRunning, setListenerRunning] = useState(false);
-    const [error, setError] = useState("");
-    const [metric, setMetric] = useState<'fold_coverage'>('fold_coverage');
+    const [error, setError] = useState<string | null>(null);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [metric, setMetric] = useState<'depth' | 'breadth'>('depth');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    type TimeUnit = 'seconds' | 'minutes' | 'hours' | 'days';
+    const [timeUnit, setTimeUnit] = useState<TimeUnit>('seconds');
 
-    // Extract threshold from the first query, default to 100 if invalid
     const threshold = data.data.queries[0]?.threshold ? parseFloat(data.data.queries[0].threshold) : 100;
+
+    const unitLabels: Record<TimeUnit, string> = {
+        seconds: 's',
+        minutes: 'min',
+        hours: 'h',
+        days: 'd'
+    };
 
     useEffect(() => {
         socket.emit('check_fastq_file_listener', { projectId: analysisData.data.projectId });
@@ -25,13 +38,13 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         const handleListenerStarted = (data: { projectId: string }) => {
             if (data.projectId === analysisData.data.projectId) {
                 setListenerRunning(true);
-                setError("");
+                setError(null);
             }
         };
         const handleListenerStopped = (data: { projectId: string }) => {
             if (data.projectId === analysisData.data.projectId) {
                 setListenerRunning(false);
-                setError("");
+                setError(null);
             }
         };
         const handleListenerError = (data: { projectId: string; error: string }) => {
@@ -47,9 +60,17 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         socket.on('fastq_file_listener_error', handleListenerError);
 
         const fetchData = async () => {
+            setFetchError(null);
             try {
                 const coverageRes = await axios.get(`http://localhost:5007/get_coverage?projectId=${analysisData.data.projectId}`);
-                setCoverageData(coverageRes.data);
+                const newCoverageData = coverageRes.data;
+                setCoverageData(newCoverageData);
+                const map = new Map<string, any>();
+                newCoverageData.forEach((entry: { timestamp: any; reference: any }) => {
+                    const key = `${entry.timestamp}-${entry.reference}`;
+                    map.set(key, entry);
+                });
+                setCoverageMap(map);
 
                 const analysisRes = await axios.get(`http://localhost:5007/get_analysis_info?uid=${analysisData.data.projectId}`);
                 if (analysisRes.data.status === 200) {
@@ -57,11 +78,12 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                 }
             } catch (err) {
                 console.error("Error fetching data:", err);
+                setFetchError("Failed to fetch data. Please try again later.");
             }
         };
 
         fetchData();
-        const interval = setInterval(fetchData, 10000);
+        const interval = setInterval(fetchData, POLLING_INTERVAL_MS);
 
         return () => {
             clearInterval(interval);
@@ -75,29 +97,51 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const formatCoverageData = () => {
         const refs = [...new Set(coverageData.map(d => d.reference))];
         const times = [...new Set(coverageData.map(d => d.timestamp))].sort();
-        const startTime = new Date(times[0]).getTime();
+        if (times.length === 0) return [];
 
-        const header = [{ type: 'number', label: 'Elapsed Time (s)', role: '' }];
+        const startTime = new Date(times[0]).getTime();
+        const conversionFactors: Record<TimeUnit, number> = {
+            seconds: 1,
+            minutes: 60,
+            hours: 3600,
+            days: 86400
+        };
+        const factor = conversionFactors[timeUnit] || 1;
+
+        const header = [{ type: 'number', label: `Elapsed Time (${unitLabels[timeUnit]})`, role: '' }];
         refs.forEach(ref => {
             header.push({ type: 'number', label: ref, role: '' });
             header.push({ type: 'string', label: 'for', role: 'tooltip' });
         });
+        if (metric === "depth" && !isNaN(threshold)) {
+            header.push({ type: 'number', label: 'Threshold', role: '' });
+            header.push({ type: 'string', label: 'for', role: 'tooltip' });
+        }
 
         const rows = times.map(time => {
             const elapsedSeconds = (new Date(time).getTime() - startTime) / 1000;
-            const row: (number | string)[] = [elapsedSeconds];
+            const elapsedTime = elapsedSeconds / factor;
+            const row: (number | string)[] = [elapsedTime];
             refs.forEach(ref => {
-                const entry = coverageData.find(d => d.timestamp === time && d.reference === ref);
-                const y = entry ? entry.fold_coverage : 0;
-                const tooltip = `Time: ${time}\n${ref}: ${y.toFixed(2)}x`;
+                const key = `${time}-${ref}`;
+                const entry = coverageMap.get(key);
+                const y = entry ? (metric === "depth" ? entry.depth : entry.breadth) : 0;
+                const unit = metric === "depth" ? 'X' : '%';
+                const tooltip = `Time: ${time}\nElapsed:${elapsedTime.toFixed(2)} ${unitLabels[timeUnit]}\n${ref}: ${y.toFixed(2)}${unit}`;
                 row.push(y);
                 row.push(tooltip);
             });
+            if (metric === "depth" && !isNaN(threshold)) {
+                row.push(threshold);
+                row.push(`Threshold: ${threshold}`);
+            }
             return row;
         });
 
         return [header, ...rows];
     };
+
+    const formattedData = useMemo(() => formatCoverageData(), [coverageMap, metric, timeUnit]);
 
     const getSankeyData = () => {
         if (coverageData.length === 0) return [['From', 'To', 'Weight']];
@@ -137,20 +181,19 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         setShowConfirmModal(false);
     };
 
-    // Compute number of references for series indexing
     const refs = [...new Set(coverageData.map(d => d.reference))];
     const numRefs = refs.length;
 
     const chartOptions = {
-        title: 'Fold Coverage Over Time',
-        hAxis: { title: 'Elapsed Time (s)' },
-        vAxis: { title: 'Fold Coverage (x)', minValue: 0 },
+        title: `${metric === "depth" ? "Depth of Coverage" : "Breadth of Coverage"} Over Time`,
+        hAxis: { title: `Elapsed Time (${unitLabels[timeUnit]})` },
+        vAxis: { title: metric === "depth" ? 'Depth (X)' : 'Breadth (%)', minValue: 0 },
         legend: { position: 'bottom' },
         colors: ['#00B0BD', '#004E5A', '#FF6A45', '#27AE60'],
         chartArea: { width: '80%', height: '70%' },
         animation: { startup: true, duration: 1000, easing: 'out' },
-        series: !isNaN(threshold) ? {
-            [numRefs]: { lineDashStyle: [4, 4], color: 'red', lineWidth: 2 }
+        series: metric === "depth" && !isNaN(threshold) ? {
+            [refs.length]: { lineDashStyle: [4, 4], color: 'red', lineWidth: 2, pointSize: 0 }
         } : {}
     };
 
@@ -183,6 +226,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                         </div>
                     </div>
                     {error && <div className="ont-alert nano-alert-danger">{error}</div>}
+                    {fetchError && <div className="ont-alert nano-alert-danger pl-2">{fetchError}</div>}
                     <div className="nano-actions">
                         {listenerRunning ? (
                             <button className="btn btn-danger nano-btn" onClick={handleStopFileListener}>
@@ -202,22 +246,37 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
 
             {/* Coverage Plot */}
             <div className="ont-card nano-chart-card">
-                <div className="nano-card-header">
+                <div className="nano-card-header d-flex justify-content-between align-items-center">
                     <h3 className="nano-card-title">Coverage Over Time</h3>
-                    <select
-                        value={metric}
-                        onChange={(e) => setMetric(e.target.value as 'fold_coverage')}
-                        className="form-control w-auto d-inline-block ml-2"
-                    >
-                        <option value="fold_coverage">Average Depth</option>
-                        <option value="breadth">Breadth of Coverage (%)</option>
-                    </select>
+                    <div className="d-flex gap-2">
+                        <Dropdown>
+                            <Dropdown.Toggle variant="secondary" id="metricDropdown" size="sm">
+                                {metric.charAt(0).toUpperCase() + metric.slice(1)}
+                            </Dropdown.Toggle>
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => setMetric('depth')}>Depth</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setMetric('breadth')}>Breadth</Dropdown.Item>
+                            </Dropdown.Menu>
+                        </Dropdown>
+                        <Dropdown>
+                            <Dropdown.Toggle variant="secondary" id="timeUnitDropdown" size="sm">
+                                {timeUnit.charAt(0).toUpperCase() + timeUnit.slice(1)}
+                            </Dropdown.Toggle>
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => setTimeUnit('seconds')}>Seconds</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setTimeUnit('minutes')}>Minutes</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setTimeUnit('hours')}>Hours</Dropdown.Item>
+                                <Dropdown.Item onClick={() => setTimeUnit('days')}>Days</Dropdown.Item>
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </div>
                 </div>
                 <div className="nano-card-body">
-                    {coverageData.length > 0 ? (
+                    {timeUnit && coverageData.length > 0 ? (
                         <Chart
+                            key={metric}
                             chartType="LineChart"
-                            data={formatCoverageData()}
+                            data={formattedData}
                             options={chartOptions}
                             width="100%"
                             height="400px"
@@ -267,26 +326,22 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             </div>
 
             {/* Confirmation Modal */}
-            {showConfirmModal && (
-                <div className="nano-modal-overlay">
-                    <div className="nano-modal">
-                        <div className="nano-modal-header">
-                            <h4 className="nano-modal-title">Confirm Removal</h4>
-                        </div>
-                        <div className="nano-modal-body">
-                            <p>Are you sure you want to remove this analysis? This action cannot be undone.</p>
-                        </div>
-                        <div className="nano-modal-footer">
-                            <button className="btn btn-outline-secondary nano-btn" onClick={cancelRemoveAnalysis}>
-                                Cancel
-                            </button>
-                            <button className="btn btn-danger nano-btn" onClick={confirmRemoveAnalysis}>
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Modal show={showConfirmModal} onHide={cancelRemoveAnalysis}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Confirm Removal</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <p>Are you sure you want to remove this analysis? This action cannot be undone.</p>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="outline-secondary" onClick={cancelRemoveAnalysis}>
+                        Cancel
+                    </Button>
+                    <Button variant="danger" onClick={confirmRemoveAnalysis}>
+                        Remove
+                    </Button>
+                </Modal.Footer>
+            </Modal>
         </div>
     );
 };
