@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -7,6 +8,8 @@ import sys
 import time
 import glob
 import pysam
+import numpy as np
+from threading import Lock
 from watchdog.events import FileSystemEventHandler
 from app import socketio
 from .LinuxNotification import LinuxNotification
@@ -23,6 +26,7 @@ class FileHandler(FileSystemEventHandler):
         self.coverage_file = os.path.join(self.app_loc, 'coverage.csv')
         self.processed_files_path = os.path.join(self.app_loc, 'processed_files.txt')
         self.processed_files = set()
+        self.processed_files_lock = Lock()  # Add lock for thread safety
         # Load previously processed files
         if os.path.exists(self.processed_files_path):
             with open(self.processed_files_path, 'r') as f:
@@ -36,24 +40,28 @@ class FileHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         src_path = event.src_path
-        if src_path in self.processed_files:
-            logger.debug(f"Skipping already processed file: {src_path}")
-            return
+        with self.processed_files_lock:
+            if src_path in self.processed_files:
+                logger.debug(f"Skipping already processed file: {src_path}")
+                return
         if not self.wait_for_file_stability(src_path):
             logger.error(f"File {src_path} is not stable, skipping.")
             return
+        mtime = os.path.getctime(src_path)
+        timestamp = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
         if self.file_type == 'FASTQ' and src_path.endswith((".fastq", ".fasta", ".fastq.gz", ".fq.gz")):
-            logger.debug(f'Processing FASTQ file: {src_path}')
-            self.process_fastq_file(src_path)
+            logger.debug(f'Processing FASTQ file: {src_path} with timestamp {timestamp}')
+            self.process_fastq_file(src_path, timestamp)
         elif self.file_type == 'BAM' and src_path.endswith(".bam"):
-            logger.debug(f'Processing BAM file: {src_path}')
-            self.process_bam_file(src_path)
+            logger.debug(f'Processing BAM file: {src_path} with timestamp {timestamp}')
+            self.process_bam_file(src_path, timestamp)
         else:
             logger.debug(f"Ignoring file {src_path} as it does not match expected type {self.file_type}")
         # Mark file as processed
-        self.processed_files.add(src_path)
-        with open(self.processed_files_path, 'a') as f:
-            f.write(src_path + '\n')
+        with self.processed_files_lock:
+            self.processed_files.add(src_path)
+            with open(self.processed_files_path, 'a') as f:
+                f.write(src_path + '\n')
 
     def wait_for_file_stability(self, file_path, timeout=60, interval=1):
         """Ensure file is fully written by checking size stability."""
@@ -80,7 +88,7 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"BAM file {bam_file} is invalid or corrupted: {e}")
             return False
 
-    def process_fastq_file(self, src_path: str):
+    def process_fastq_file(self, src_path: str, timestamp: str = None):
         """Process FASTQ file by aligning to database and calculating coverage."""
         index_file = self.get_index_file()
         if not index_file:
@@ -104,18 +112,18 @@ class FileHandler(FileSystemEventHandler):
 
         # Merge and calculate coverage
         self.merge_bam(sorted_bam_output)
-        self.calculate_and_record_coverage()
+        self.calculate_and_record_coverage(timestamp)
         # Clean up
         if os.path.exists(sorted_bam_output):
             os.remove(sorted_bam_output)
 
-    def process_bam_file(self, bam_path: str):
+    def process_bam_file(self, bam_path: str, timestamp: str = None):
         """Process BAM file by merging and calculating coverage."""
         if not self.is_bam_valid(bam_path):
             logger.error(f"Skipping invalid BAM file: {bam_path}")
             return
         self.merge_bam(bam_path)
-        self.calculate_and_record_coverage()
+        self.calculate_and_record_coverage(timestamp)
 
     def get_index_file(self) -> str | None:
         """Retrieve the database index file."""
@@ -146,8 +154,10 @@ class FileHandler(FileSystemEventHandler):
         except subprocess.CalledProcessError as e:
             logger.error(f"Error sorting/indexing merged BAM: {e}")
 
-    def calculate_and_record_coverage(self):
-        """Calculate and record fold coverage (average depth) and read count per reference."""
+    def calculate_and_record_coverage(self, timestamp: str = None):
+        """Calculate and record depth coverage (average depth), breadth coverage, and read count per reference."""
+        if timestamp is None:
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         try:
             bam = pysam.AlignmentFile(self.merged_bam, "rb", check_sq=False)
             if not bam.has_index():
@@ -158,21 +168,28 @@ class FileHandler(FileSystemEventHandler):
                 ref_length = bam.lengths[bam.references.index(ref)]
                 # Get coverage depth across all positions for this reference
                 coverage = bam.count_coverage(ref)
-                # Sum depths across all bases (A, C, G, T) at each position
-                total_depth = sum(sum(cov) for cov in coverage)
-                # Calculate fold coverage as total depth divided by reference length
-                fold_coverage = total_depth / ref_length if ref_length > 0 else 0
+                # Sum depths across all bases (A, C, G, T) at each position using NumPy
+                total_depth_per_position = np.sum([np.array(cov) for cov in coverage], axis=0)
+                total_depth = np.sum(total_depth_per_position)
+                # Depth coverage is average depth across the reference
+                depth_coverage = total_depth / ref_length if ref_length > 0 else 0
+                # Breadth coverage: percentage of positions with at least one read
+                covered_positions = np.sum(total_depth_per_position >= 1)
+                breadth_coverage = (covered_positions / ref_length) * 100 if ref_length > 0 else 0
                 read_count = bam.count(ref)  # Count reads mapping to this reference
-                coverage_data[ref] = {"fold_coverage": fold_coverage, "read_count": read_count}
-                print(f"Reference: {ref}, Fold Coverage: {fold_coverage:.2f}x, Read Count: {read_count}")
-                # Update alert check to use fold coverage if needed
-                self.check_fold_coverage_alert(ref, fold_coverage)
+                coverage_data[ref] = {
+                    "depth": depth_coverage,
+                    "breadth": breadth_coverage,
+                    "read_count": read_count
+                }
+                print(f"Reference: {ref}, Depth Coverage: {depth_coverage:.2f}x, Breadth Coverage: {breadth_coverage:.2f}%, Read Count: {read_count}")
+                # Update alert check to use depth coverage if needed
+                self.check_depth_coverage_alert(ref, depth_coverage)
             bam.close()
 
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
             with open(self.coverage_file, 'a') as f:
                 for ref, cov in coverage_data.items():
-                    f.write(f"{timestamp},{ref},{cov['fold_coverage']},{cov['read_count']}\n")
+                    f.write(f"{timestamp},{ref},{cov['depth']},{cov['breadth']},{cov['read_count']}\n")
             logger.debug(f"Coverage and read counts recorded at {timestamp}")
 
             # Emit coverage update via Socket.IO
@@ -184,8 +201,8 @@ class FileHandler(FileSystemEventHandler):
         except Exception as e:
             logger.error(f"Error calculating coverage: {e}")
 
-    def check_fold_coverage_alert(self, ref: str, fold_coverage: float):
-        """Check if fold coverage exceeds threshold and send alerts."""
+    def check_depth_coverage_alert(self, ref: str, depth_coverage: float):
+        """Check if depth coverage exceeds threshold and send alerts."""
         with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
             alertinfo_cfg_data = json.load(f)
         queries = alertinfo_cfg_data.get("queries", [])
@@ -193,8 +210,8 @@ class FileHandler(FileSystemEventHandler):
         for query in queries:
             if ref == query.get("header", ""):
                 threshold = float(query.get("threshold", 0))
-                if fold_coverage >= threshold:
-                    alert_str = f"Alert: {query['name']} fold coverage reached {fold_coverage:.2f}x (threshold: {threshold}x)"
+                if depth_coverage >= threshold:
+                    alert_str = f"Alert: {query['name']} depth coverage reached {depth_coverage:.2f}x (threshold: {threshold}x)"
                     logger.critical(alert_str)
                     if device:
                         LinuxNotification.send_notification(device, alert_str)
@@ -203,3 +220,34 @@ class FileHandler(FileSystemEventHandler):
                         send_email("nanoCAS Alert", alert_str, email_config)
                     if os.getenv('TWILIO_ACCOUNT_SID'):
                         send_sms(alert_str)
+
+    def get_existing_files(self, directory):
+        """Get list of existing files of the specified type, sorted by modification time."""
+        if self.file_type == 'FASTQ':
+            extensions = ('.fastq', '.fasta', '.fastq.gz', '.fq.gz')
+        elif self.file_type == 'BAM':
+            extensions = ('.bam',)
+        else:
+            return []
+
+        files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(extensions)]
+        with self.processed_files_lock:
+            files = [f for f in files if f not in self.processed_files]
+        # Sort by modification time
+        files.sort(key=lambda x: os.path.getctime(x))
+        return files
+
+    def process_existing_files(self, directory):
+        """Process existing files in the directory before starting the observer."""
+        files = self.get_existing_files(directory)
+        for file in files:
+            mtime = os.path.getmtime(file)
+            timestamp = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+            if self.file_type == 'FASTQ':
+                self.process_fastq_file(file, timestamp)
+            elif self.file_type == 'BAM':
+                self.process_bam_file(file, timestamp)
+            with self.processed_files_lock:
+                self.processed_files.add(file)
+                with open(self.processed_files_path, 'a') as f:
+                    f.write(file + '\n')

@@ -90,6 +90,9 @@ def start_fastq_file_listener(data):
     if project_id not in observers:
         try:
             event_handler = FileHandler(nanocas_location)
+            # Start processing existing files in a separate thread
+            thread = Thread(target=event_handler.process_existing_files, args=(minion_location,))
+            thread.start()
             observer = Observer()
             observer.schedule(event_handler, path=minion_location, recursive=False)
             observer.start()
