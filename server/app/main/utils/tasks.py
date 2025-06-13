@@ -1,8 +1,5 @@
-# FILE: ./app/main/utils/tasks.py
 from celery import Celery
-import subprocess, os, shutil, random
-from celery.exceptions import SoftTimeLimitExceeded
-from flask_socketio import emit
+import subprocess, os, shutil, datetime
 import json, sys
 import logging
 
@@ -16,109 +13,101 @@ if not logger.handlers:  # Prevent duplicate handlers
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
-# Remove redundant handler addition
-# logging.getLogger('nanocas').addHandler(logging.StreamHandler(sys.stdout))
-# logger = logging.getLogger('nanocas')
-
 celery = Celery('tasks', broker='redis://localhost', backend='redis')
 
 @celery.task(bind=True, name='app.main.tasks.int_download_database')
 def int_download_database(self, db_data, nanocas_location, queries):
+    """Download and build a database from query sequences using Minimap2."""
+    # Extract task parameters
     minion = db_data['minion']
     project_id = db_data['projectId']
     device = db_data['device']
-    # Create variables for database.
-    nanocas_location_database = os.path.join(nanocas_location, 'database/')
+    database_dir = os.path.join(nanocas_location, 'database')
+    os.makedirs(database_dir, exist_ok=True)
 
-    if len(queries) == 0:
-        logger.debug("Debug: No database queries provided, skipping...")
-    else:
+    # Generate unique base name from timestamp
+    now = datetime.datetime.now()
+    base_name = f"{now.year}{now.month:02d}{now.day:02d}{now.hour:02d}{now.minute:02d}{now.second:02d}"
+    input_sequences_path = os.path.join(database_dir, f"{base_name}.fa")
+    db_index_path = os.path.join(database_dir, f"{base_name}.mmi")
+
+    # Process queries if provided
+    if len(queries) > 0:
+        alertinfo_cfg_path = os.path.join(nanocas_location, 'alertinfo.cfg')
+        with open(alertinfo_cfg_path, 'r') as f:
+            alertinfo_cfg = json.load(f)
+
         for i, query in enumerate(queries):
-            query_file = open(query['file'], 'r')
-
-            # Putting all the query sequences in one, input_sequences file.
-            with open(nanocas_location_database + 'input_sequences.fa', 'a+') as input_sequences:
-                input_sequences.write('\n')
-
-            # get the fasta header and add it into the alertinfo.cfg file
-            fasta_header = ""
-            with open(query['file'], 'r') as f:
-                for line in f:
+            # Extract FASTA header
+            with open(query['file'], 'r', encoding='utf-8') as qf:
+                for line in qf:
                     if line.startswith('>'):
-                        fasta_header = line[1:].strip()
+                        header = line[1:].strip()
                         break
-            # Remove any newline or whitespace characters from fasta_header
-            fasta_header = fasta_header.strip()
+                else:
+                    header = ""  # Default if no header found
 
-            alertinfo_cfg_file = os.path.join(nanocas_location, 'alertinfo.cfg')
-            logger.debug(f"Debug: Alert info file: {alertinfo_cfg_file}")
-            with open(alertinfo_cfg_file, 'r') as alertinfo_fs:
-                alertinfo_cfg_obj = json.load(alertinfo_fs)
-                queries = alertinfo_cfg_obj["queries"]
-                for _, q in enumerate(queries):
-                    if q["file"] == query["file"]:
-                        alertinfo_cfg_obj["queries"][i]["header"] = fasta_header
+            # Update alertinfo configuration in memory
+            alertinfo_cfg["queries"][i]["header"] = header
 
-            alertinfo_cfg_obj['device'] = device
-            # write the updated object into file
-            json.dump(alertinfo_cfg_obj, open(alertinfo_cfg_file, 'w'))
+            # Append query sequence to input file
+            with open(query['file'], 'rb') as qf, open(input_sequences_path, 'ab') as isf:
+                shutil.copyfileobj(qf, isf)
+            logger.debug(f"Merged {query['file']} into {input_sequences_path}")
 
-            # copy the contents of query_file into input_sequences
-            with open(query['file'], 'rb') as query_file, open(nanocas_location_database + 'input_sequences.fa',
-                                                               'ab+') as input_sequences:
-                shutil.copyfileobj(query_file, input_sequences)
-            logger.debug(f"Debug: Merged {query['file']} sequence into input_sequences.fa file.")
-
+            # Update task progress
+            percent_done = int((i + 1) / len(queries) * 50)
             self.update_state(
                 state="PROGRESS",
                 meta={
-                    'percent-done': 50,
-                    'message': "Merged " + query['file'] + " sequence into input_sequences.fa file.",
+                    'percent-done': percent_done,
+                    'message': f"Processed query {i+1}/{len(queries)}",
                     'project_id': project_id
                 }
             )
-            logger.debug(f"Progress: Merged {query['file']} sequence, 50% done for project {project_id}")
+            logger.debug(f"Progress: {percent_done}% done for project {project_id}")
 
-    # Generate database index.
-    import datetime
-    now = datetime.datetime.now()
+        # Set device and save alertinfo configuration
+        alertinfo_cfg['device'] = device
+        with open(alertinfo_cfg_path, 'w') as f:
+            json.dump(alertinfo_cfg, f)
+    else:
+        # Create an empty input file if no queries are provided
+        with open(input_sequences_path, 'wb') as f:
+            pass
+        logger.debug("No queries provided, created empty input file.")
 
-    logger.debug("Debug: Building the index.")
-    self.update_state(state="PROGRESS",
-                      meta={'percent-done': 98, 'message': "Building the index.", 'project_id': project_id})
+    # Build the database index
+    self.update_state(
+        state="PROGRESS",
+        meta={'percent-done': 98, 'message': "Building the index.", 'project_id': project_id}
+    )
+    logger.debug("Building the index with Minimap2")
+    index_cmd = f"minimap2 -x map-ont -d {db_index_path} {input_sequences_path}"
+    build_log_path = os.path.join(database_dir, 'building_index.txt')
+    with open(build_log_path, 'w') as f:
+        try:
+            subprocess.run(index_cmd, shell=True, check=True, stdout=f, stderr=f)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Minimap2 failed: {e}")
+            return "ER1"
+        
+    # Create coverage.csv with header as soon as MMI file is generated
+    coverage_file = os.path.join(nanocas_location, 'coverage.csv')
+    with open(coverage_file, 'w') as f:
+        f.write("timestamp,reference,depth,breadth,read_count\n")
 
-    dbname = \
-        nanocas_location_database + str(now.year) + str(now.month) + str(now.day) + str(now.hour) + str(now.minute) + \
-        str(now.second) + '.mmi'
-
-    input_sequences_path = os.path.join(nanocas_location_database, 'input_sequences.fa')
-    index_cmd = [
-        'minimap2 -x map-ont -d ' + dbname + ' ' + input_sequences_path
-    ]
-    building_index_output = open(os.path.join(nanocas_location_database, 'building_index.txt'), 'w+')
-    try:
-        build_idx_cmd_output = subprocess.Popen(
-            index_cmd,
-            shell=True,
-            stdout=building_index_output,
-            stderr=building_index_output
-        )
-        build_idx_cmd_output.communicate()
-        build_idx_cmd_output.wait()
-
-    except (OSError, subprocess.CalledProcessError) as exception:
-        logger.error(str(exception))
-        return "ER1"
-
-    logger.debug("Debug: Database has successfully been downloaded and built.")
-    self.update_state(state="PROGRESS",
-                      meta={
-                          'percent-done': 100,
-                          'message'     : "Database has successfully been downloaded and built.",
-                          'nanocas_location': nanocas_location,
-                          'minion'      : minion,
-                          'device'      : device,
-                          'project_id'  : project_id
-                      })
-
+    # Mark task as complete
+    self.update_state(
+        state="PROGRESS",
+        meta={
+            'percent-done': 100,
+            'message': "Database successfully downloaded and built.",
+            'nanocas_location': nanocas_location,
+            'minion': minion,
+            'device': device,
+            'project_id': project_id
+        }
+    )
+    logger.debug("Database build completed successfully")
     return {"minion": minion, "nanocas_location": nanocas_location, "device": device}

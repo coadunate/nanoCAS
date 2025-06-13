@@ -30,9 +30,6 @@ class FileHandler(FileSystemEventHandler):
         with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
             self.config = json.load(f)
         self.file_type = self.config.get('fileType', 'FASTQ')
-        if not os.path.exists(self.coverage_file):
-            with open(self.coverage_file, 'w') as f:
-                f.write("timestamp,reference,fold_coverage,read_count\n")
 
     def on_moved(self, event):
         self.on_any_event(event)

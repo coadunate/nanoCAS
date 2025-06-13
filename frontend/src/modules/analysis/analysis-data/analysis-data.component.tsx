@@ -14,7 +14,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const [coverageMap, setCoverageMap] = useState(new Map<string, any>());
     const [listenerRunning, setListenerRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [fetchError, setFetchError] = useState<string | null>(null);
+    const [fetchError, setFetchError] = useState<string | null>(null); // Still available but not used for this case
     const [metric, setMetric] = useState<'depth' | 'breadth'>('depth');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     type TimeUnit = 'seconds' | 'minutes' | 'hours' | 'days';
@@ -60,7 +60,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         socket.on('fastq_file_listener_error', handleListenerError);
 
         const fetchData = async () => {
-            setFetchError(null);
+            setError(null); // Clear previous errors before fetching
             try {
                 const coverageRes = await axios.get(`http://localhost:5007/get_coverage?projectId=${analysisData.data.projectId}`);
                 const newCoverageData = coverageRes.data;
@@ -78,7 +78,16 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                 }
             } catch (err) {
                 console.error("Error fetching data:", err);
-                setFetchError("Failed to fetch data. Please try again later.");
+                if (err.response && err.response.data && err.response.data.error) {
+                    // Set specific error message from server
+                    setError(err.response.data.error);
+                } else if (err.response) {
+                    // Handle other server errors with a generic message
+                    setError("An error occurred while fetching data.");
+                } else {
+                    // Handle network errors
+                    setError("Failed to connect to the server. Please check your network connection.");
+                }
             }
         };
 
@@ -222,7 +231,6 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                         </div>
                     </div>
                     {error && <div className="nano-alert nano-alert-danger">{error}</div>}
-                    {fetchError && <div className="nano-alert nano-alert-danger pl-2">{fetchError}</div>}
                     <div className="nano-actions">
                         {listenerRunning ? (
                             <button className="btn btn-danger nano-btn" onClick={handleStopFileListener}>
