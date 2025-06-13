@@ -56,6 +56,14 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
     // Additional databases
     const add_databases = databaseSetupInput.queries.queries;
 
+    // Function to scroll to the top smoothly
+    const scrollToTop = () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    };
+
     const initiateDatabaseCreation = async (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         e.preventDefault();
         setStarted(true);
@@ -89,6 +97,9 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 });
                 let _url = 'http://' + window.location.hostname + ":" + window.location.port + '/analysis/' + newUID;
                 setSuccess("Creating database... You can view the analysis <a href='" + _url + "'>here</a>");
+
+                // Scroll to the top smoothly after success
+                scrollToTop();
             } else {
                 setValidationState(VALIDATION_STATES.NOT_VALID);
                 setError("Locations are not valid");
@@ -144,7 +155,6 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 <tr><th>SMTP Port</th><td colSpan={2}>{alertNotifSetupInput.smtpPort}</td></tr>
                 <tr><th>Password</th><td colSpan={2}>{alertNotifSetupInput.password}</td></tr>
                 </tbody>
-
             </table>
             <div className="vspacer-20" />
             <button className="btn btn-primary" disabled={started} onClick={(e) => initiateDatabaseCreation(e)}>
