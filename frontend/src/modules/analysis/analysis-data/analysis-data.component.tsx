@@ -3,7 +3,7 @@ import { IAnalysisDataProps } from "./analysis-data.interfaces";
 import { socket } from "../../../app.component";
 import { Chart } from "react-google-charts";
 import axios from "axios";
-import { Dropdown, Modal, Button } from "react-bootstrap";
+import { Dropdown, Modal, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 import './analysis-data.component.css';
 
 const POLLING_INTERVAL_MS = 10000;
@@ -19,6 +19,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     type TimeUnit = 'seconds' | 'minutes' | 'hours' | 'days';
     const [timeUnit, setTimeUnit] = useState<TimeUnit>('seconds');
+    const [isDatabaseReady, setIsDatabaseReady] = useState(false);
 
     const threshold = data.data.queries[0]?.threshold ? parseFloat(data.data.queries[0].threshold) : 100;
 
@@ -28,6 +29,18 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         hours: 'h',
         days: 'd'
     };
+
+    const checkDatabaseStatus = async (projectId: string) => {
+        try {
+            const res = await axios.get(`http://localhost:5007/check_database_status?projectId=${projectId}`);
+            console.log("Database status response:", res.data);
+            return res.data.is_ready;
+        } catch (error) {
+            console.error("Error checking database status:", error);
+            return false; // Assume not ready if there's an error
+        }
+    };
+
 
     useEffect(() => {
         socket.emit('check_fastq_file_listener', { projectId: analysisData.data.projectId });
@@ -89,6 +102,14 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                     setError("Failed to connect to the server. Please check your network connection.");
                 }
             }
+            
+            // Check database status
+            const checkStats = await checkDatabaseStatus(analysisData.data.projectId);
+            setIsDatabaseReady(checkStats);
+            if (!checkStats) {
+                setError("Database is not ready. Please wait for the database to be initialized.");
+            }
+
         };
 
         fetchData();
@@ -237,11 +258,24 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                                 <i className="fas fa-stop"></i> Stop Analysis
                             </button>
                         ) : (
-                            <button className="btn btn-primary nano-btn" onClick={handleStartFileListener}>
-                                <i className="fas fa-play"></i> Start Analysis
-                            </button>
+                            isDatabaseReady ? (
+                                <button className="btn btn-outline-primary nano-btn" onClick={handleStartFileListener}>
+                                    <i className="fas fa-play"></i> Start Analysis
+                                </button>
+                            ) : (
+                                <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip id="database-not-found-tooltip">Database not found</Tooltip>}
+                                >
+                                    <span>
+                                        <button className="btn btn-outline-primary nano-btn" disabled>
+                                            <i className="fas fa-play"></i> Start Analysis
+                                        </button>
+                                    </span>
+                                </OverlayTrigger>
+                            )
                         )}
-                        <button className="btn btn-outline-danger nano-btn" onClick={handleRemoveAnalysis}>
+                        <button className="btn btn-outline-danger" onClick={handleRemoveAnalysis}>
                             <i className="fas fa-trash"></i> Remove Analysis
                         </button>
                     </div>

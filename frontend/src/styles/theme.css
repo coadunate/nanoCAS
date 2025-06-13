@@ -183,6 +183,17 @@ a:hover {
   background-color: var(--ont-primary);
 }
 
+.btn-outline-danger {
+  color: var(--ont-danger);
+  background-color: transparent;
+  border-color: var(--ont-danger);
+}
+
+.btn-outline-danger:hover, .btn-outline-danger:focus {
+  color: var(--ont-white);
+  background-color: var(--ont-danger);
+}
+
 /* Card Styles */
 .card {
   position: relative;

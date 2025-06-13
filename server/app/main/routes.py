@@ -6,6 +6,7 @@ import random
 import string
 import uuid
 import subprocess
+import glob
 
 from flask import session, render_template, request, abort, jsonify
 from . import main
@@ -19,6 +20,16 @@ CACHE_PATH = os.path.join(os.path.expanduser('~'), '.nanocas/.cache') # Add to C
 @main.route('/version', methods=['GET'])
 def version():
     return json.dumps({"version": "v0.0.2", "name": "nanocas PoC"})
+
+@main.route('/check_database_status', methods=['GET'])
+def check_database_status():
+    project_id = request.args.get('projectId')
+    if not project_id:
+        return jsonify({'error': 'projectId is required'}), 400
+    nanocas_path = os.path.join(NANOCAS_DIR, project_id)
+    mmi_files = glob.glob(os.path.join(nanocas_path, 'database', '*.mmi'))
+    is_ready = len(mmi_files) > 0
+    return jsonify({'is_ready': is_ready})
 
 @main.route('/get_timeline_info', methods=["GET"])
 def get_timeline_info():
