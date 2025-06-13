@@ -271,7 +271,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                                     overlay={<Tooltip id="database-not-found-tooltip">Database not found</Tooltip>}
                                 >
                                     <span>
-                                        <button className="btn btn-outline-primary nano-btn" disabled>
+                                        <button className="btn btn-outline-grey nano-btn" disabled>
                                             <i className="fas fa-play"></i> Start Analysis
                                         </button>
                                     </span>

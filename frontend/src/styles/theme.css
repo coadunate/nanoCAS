@@ -172,6 +172,27 @@ a:hover {
   border-color: var(--ont-danger);
 }
 
+.btn-grey {
+  color: var(--ont-black);
+  background-color: var(--ont-light-gray);
+  border-color: var(--ont-gray);
+}
+
+.btn-grey:hover, .btn-grey:focus {
+  color: var(--ont-white);
+  background-color: var(--ont-gray);
+}
+
+.btn-outline-grey {
+  color: var(--ont-black);
+  background-color: transparent;
+  border: 1px solid var(--ont-black);
+}
+.btn-outline-grey:hover, .btn-outline-grey:focus {
+  color: var(--ont-white);
+  background-color: var(--ont-gray);
+}
+
 .btn-outline-primary {
   color: var(--ont-primary);
   background-color: transparent;
