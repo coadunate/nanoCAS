@@ -4,6 +4,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import time
 import glob
 import pysam
@@ -66,9 +67,15 @@ class FileHandler(FileSystemEventHandler):
         """Ensure file is fully written by checking size stability."""
         start_time = time.time()
         while time.time() - start_time < timeout:
+            if not os.path.exists(file_path):
+                logger.error(f"File {file_path} no longer exists.")
+                return False
             try:
                 size1 = os.path.getsize(file_path)
                 time.sleep(interval)
+                if not os.path.exists(file_path):
+                    logger.error(f"File {file_path} no longer exists.")
+                    return False
                 size2 = os.path.getsize(file_path)
                 if size1 == size2:
                     return True
@@ -184,6 +191,15 @@ class FileHandler(FileSystemEventHandler):
                 print(f"Reference: {ref}, Depth Coverage: {depth_coverage:.2f}x, Breadth Coverage: {breadth_coverage:.2f}%, Read Count: {read_count}")
                 # Update alert check to use depth coverage if needed
                 self.check_depth_coverage_alert(ref, depth_coverage)
+
+            # add unmapped reads
+            unmapped_count = bam.unmapped
+            coverage_data['unmapped'] = {
+                "depth": 0.0,
+                "breadth": 0.0,
+                "read_count": unmapped_count
+            }
+
             bam.close()
 
             with open(self.coverage_file, 'a') as f:
@@ -227,3 +243,34 @@ class FileHandler(FileSystemEventHandler):
                             send_sms(alert_str, sms_recipient)
                         else:
                             logger.error("SMS recipient phone number is missing.")
+
+    def get_existing_files(self, directory):
+        """Get list of existing files of the specified type, sorted by modification time."""
+        if self.file_type == 'FASTQ':
+            extensions = ('.fastq', '.fasta', '.fastq.gz', '.fq.gz')
+        elif self.file_type == 'BAM':
+            extensions = ('.bam',)
+        else:
+            return []
+
+        files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(extensions)]
+        with self.processed_files_lock:
+            files = [f for f in files if f not in self.processed_files]
+        # Sort by modification time
+        files.sort(key=lambda x: os.path.getctime(x))
+        return files
+
+    def process_existing_files(self, directory):
+        """Process existing files in the directory before starting the observer."""
+        files = self.get_existing_files(directory)
+        for file in files:
+            mtime = os.path.getmtime(file)
+            timestamp = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+            if self.file_type == 'FASTQ':
+                self.process_fastq_file(file, timestamp)
+            elif self.file_type == 'BAM':
+                self.process_bam_file(file, timestamp)
+            with self.processed_files_lock:
+                self.processed_files.add(file)
+                with open(self.processed_files_path, 'a') as f:
+                    f.write(file + '\n')

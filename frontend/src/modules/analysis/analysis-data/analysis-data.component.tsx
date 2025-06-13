@@ -128,7 +128,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     }, [analysisData.data.projectId]);
 
     const formatCoverageData = () => {
-        const refs = [...new Set(coverageData.map(d => d.reference))];
+        const refs = [...new Set(coverageData.map(d => d.reference))].filter(ref => ref !== 'Unmapped');
         const times = [...new Set(coverageData.map(d => d.timestamp))].sort();
         if (times.length === 0) return [];
 
