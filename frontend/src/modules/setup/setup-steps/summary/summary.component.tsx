@@ -24,7 +24,7 @@ const validateLocations = (queries: IQuery[], locations: ILocationConfig) => {
         return null;
     })
     let locationData = new FormData();
-    locationData.append('minION', locations.minionLocation);
+    locationData.append('minION', locations.nanoporeLocation);
     locationData.append('Queries', queryFiles);
 
     return axios({
@@ -37,7 +37,7 @@ const validateLocations = (queries: IQuery[], locations: ILocationConfig) => {
 
 const getUniqueUID = (locations: ILocationConfig) => {
     let locationData = new FormData();
-    locationData.append('minION', locations.minionLocation);
+    locationData.append('minION', locations.nanoporeLocation);
 
     return axios({
         method: "POST",
@@ -83,7 +83,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 // Proceed with database creation
                 socket.emit('log', "Locations are valid", "INFO");
                 let dbInfo = {
-                    minion: databaseSetupInput.locations.minionLocation,
+                    minion: databaseSetupInput.locations.nanoporeLocation,
                     queries: add_databases,
                     projectId: newUID,
                     device: databaseSetupInput.device.device,
@@ -109,7 +109,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
             console.error(err);
         }
     };
-
+    console.log(databaseSetupInput)
     return (
         <div className="container text-center">
             <div className="vspacer-20" />
@@ -141,7 +141,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 <tr><th colSpan={3}>Configuration</th></tr>
                 </thead>
                 <tbody>
-                <tr><th>MinION Directory</th><td colSpan={2}>{databaseSetupInput.locations.minionLocation}</td></tr>
+                <tr><th>Nanopore Directory</th><td colSpan={2}>{databaseSetupInput.locations.nanoporeLocation}</td></tr>
                 <tr><th>Sequencing Device</th><td colSpan={2}>{databaseSetupInput.device.device || "Not provided"}</td></tr>
                 <tr><th>File Type</th><td colSpan={2}>{databaseSetupInput.fileType}</td></tr>
                 </tbody>

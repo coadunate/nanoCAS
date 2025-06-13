@@ -8,7 +8,7 @@ import AlertConfigurationComponent from "./alert-configuration/alert-configurati
 import { IAlertConfig } from "./alert-configuration/alert-configuration.interfaces";
 
 const initial_additional_sequences_config: IAdditionalSequences = { queries: [] };
-const initial_location_config: ILocationConfig = { minionLocation: "" };
+const initial_location_config: ILocationConfig = { nanoporeLocation: "" };
 const initial_alert_config: IAlertConfig = { device: "" };
 
 const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanceStep, update }) => {

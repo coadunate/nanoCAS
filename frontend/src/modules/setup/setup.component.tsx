@@ -22,7 +22,7 @@ const qrs: IAdditionalSequences = {
 
 const initial_db_setup_input: IDatabseSetupInput = {
     queries  : qrs,
-    locations: {minionLocation: ""},
+    locations: {nanoporeLocation: ""},
     device: {device: ""},
     fileType: 'FASTQ'
 };

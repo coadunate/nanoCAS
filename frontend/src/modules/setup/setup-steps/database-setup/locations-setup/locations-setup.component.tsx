@@ -2,9 +2,9 @@ import React, {FunctionComponent, useEffect, useState} from 'react';
 import {IDatabaseSetupConstituent, ILocationConfig} from "../database-setup.interfaces";
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 
-type IKeys = "minionLocation"
+type IKeys = "nanoporeLocation"
 const initial_location_config: ILocationConfig = {
-    minionLocation: ""
+    nanoporeLocation: ""
 }
 
 const LocationsSetupComponent: FunctionComponent<IDatabaseSetupConstituent> = ({updateConfig}) => {
@@ -20,7 +20,7 @@ const LocationsSetupComponent: FunctionComponent<IDatabaseSetupConstituent> = ({
     useEffect(() => {
         updateConfig((prevState: any) => ({
             ...prevState,
-            minionLocation: locationConfig.minionLocation
+            nanoporeLocation: locationConfig.nanoporeLocation
         }));
     }, [locationConfig, updateConfig]);
 
@@ -36,12 +36,12 @@ const LocationsSetupComponent: FunctionComponent<IDatabaseSetupConstituent> = ({
                     overlay={<Tooltip id="tooltip">Path to your Nanopore data directory</Tooltip>}
                 >
                     <input
-                        name="minionLocationText"
+                        name="nanoporeLocationText"
                         className={`form-control ${error ? 'is-invalid' : ''}`}
                         placeholder="/path/to/minion/dropbox"
                         type="text"
-                        value={locationConfig.minionLocation}
-                        onChange={handleDataChange("minionLocation")}
+                        value={locationConfig.nanoporeLocation}
+                        onChange={handleDataChange("nanoporeLocation")}
                     />
                 </OverlayTrigger>
                 {error && <div className="invalid-feedback">{error}</div>}
