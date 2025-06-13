@@ -1,9 +1,14 @@
 type IAlertNotifSetupInput = {
-    sender: string,
-    recipient: string,
-    smtpServer: string,
-    smtpPort: number,
-    password: string,
+    enableEmail: boolean,
+    emailConfig?: {
+        sender: string,
+        recipient: string,
+        smtpServer: string,
+        smtpPort: number,
+        password: string,
+    },
+    enableSMS: boolean,
+    smsRecipient?: string,
 }
 
 export type {

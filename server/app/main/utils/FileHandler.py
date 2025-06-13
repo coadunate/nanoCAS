@@ -4,7 +4,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 import time
 import glob
 import pysam
@@ -207,6 +206,7 @@ class FileHandler(FileSystemEventHandler):
             alertinfo_cfg_data = json.load(f)
         queries = alertinfo_cfg_data.get("queries", [])
         device = alertinfo_cfg_data.get("device", "")
+        alert_notif_config = alertinfo_cfg_data.get("alertNotifConfig", {})
         for query in queries:
             if ref == query.get("header", ""):
                 threshold = float(query.get("threshold", 0))
@@ -215,39 +215,15 @@ class FileHandler(FileSystemEventHandler):
                     logger.critical(alert_str)
                     if device:
                         LinuxNotification.send_notification(device, alert_str)
-                    if "alertNotifConfig" in alertinfo_cfg_data:
-                        email_config = alertinfo_cfg_data['alertNotifConfig']
-                        send_email("nanoCAS Alert", alert_str, email_config)
-                    if os.getenv('TWILIO_ACCOUNT_SID'):
-                        send_sms(alert_str)
-
-    def get_existing_files(self, directory):
-        """Get list of existing files of the specified type, sorted by modification time."""
-        if self.file_type == 'FASTQ':
-            extensions = ('.fastq', '.fasta', '.fastq.gz', '.fq.gz')
-        elif self.file_type == 'BAM':
-            extensions = ('.bam',)
-        else:
-            return []
-
-        files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(extensions)]
-        with self.processed_files_lock:
-            files = [f for f in files if f not in self.processed_files]
-        # Sort by modification time
-        files.sort(key=lambda x: os.path.getctime(x))
-        return files
-
-    def process_existing_files(self, directory):
-        """Process existing files in the directory before starting the observer."""
-        files = self.get_existing_files(directory)
-        for file in files:
-            mtime = os.path.getmtime(file)
-            timestamp = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
-            if self.file_type == 'FASTQ':
-                self.process_fastq_file(file, timestamp)
-            elif self.file_type == 'BAM':
-                self.process_bam_file(file, timestamp)
-            with self.processed_files_lock:
-                self.processed_files.add(file)
-                with open(self.processed_files_path, 'a') as f:
-                    f.write(file + '\n')
+                    if alert_notif_config.get("enableEmail", False):
+                        email_config = alert_notif_config.get("emailConfig", {})
+                        if all(key in email_config for key in ["sender", "recipient", "smtpServer", "smtpPort", "password"]):
+                            send_email("nanoCAS Alert", alert_str, email_config)
+                        else:
+                            logger.error("Email configuration is incomplete.")
+                    if alert_notif_config.get("enableSMS", False):
+                        sms_recipient = alert_notif_config.get("smsRecipient", "")
+                        if sms_recipient:
+                            send_sms(alert_str, sms_recipient)
+                        else:
+                            logger.error("SMS recipient phone number is missing.")

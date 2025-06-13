@@ -1,59 +1,49 @@
 import React, { FunctionComponent, useState } from 'react';
-import { IAlertConfigSetupProps, IAlertNotifSetupProps, IDatabaseSetupProps } from '../../setup.interfaces';
+import { IAlertNotifSetupProps } from '../../setup.interfaces';
 import { IAlertNotifSetupInput } from './alert-notif-setup.interfaces';
 
 const AlertNotifSetupComponent: FunctionComponent<IAlertNotifSetupProps> = ({ advanceStep, update }) => {
-
-    type IKeys = "sender" | "recipient" | "smtpServer" | "smtpPort" | "password"
-
-    const initial_alert_notif_setup_config : IAlertNotifSetupInput = {
+    const [enableEmail, setEnableEmail] = useState(false);
+    const [emailConfig, setEmailConfig] = useState({
         sender: '',
         recipient: '',
         smtpServer: '',
         smtpPort: 587,
         password: ''
-    }
-
-
-    const [alertNotifConfig, setAlertNotifConfig] = useState(initial_alert_notif_setup_config)
+    });
+    const [enableSMS, setEnableSMS] = useState(false);
+    const [smsRecipient, setSmsRecipient] = useState('');
     const [error, setError] = useState('');
 
-    const handleDataChange = (key : IKeys) => (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const value = evt.target.value;
-        setAlertNotifConfig((prev) => ({...prev, [key]: value}));
-    }
+    const handleEmailConfigChange = (key: string) => (evt: React.ChangeEvent<HTMLInputElement>) => {
+        setEmailConfig((prev) => ({ ...prev, [key]: evt.target.value }));
+    };
 
-    // Validate and update configuration
     const updateAlertNotifSetupConfiguration = () => {
+        setError('');
+        if (enableEmail) {
+            const { sender, recipient, smtpServer, smtpPort, password } = emailConfig;
+            if (!sender || !recipient || !smtpServer || !smtpPort || !password) {
+                setError('All email fields are required when email notifications are enabled.');
+                return;
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(sender) || !emailRegex.test(recipient)) {
+                setError('Invalid email format.');
+                return;
+            }
+        }
+        if (enableSMS && !smsRecipient) {
+            setError('Recipient phone number is required when SMS notifications are enabled.');
+            return;
+        }
 
-        // validate the input fields
-        const { sender, recipient, smtpServer, smtpPort, password } = alertNotifConfig;
-        if (!sender || !recipient || !smtpServer || !smtpPort || !password) {
-            setError('All fields are required.');
-            return;
-        }
-        setError(''); // Clear error if all fields are valid
-
-        // Check if the email format is valid
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(sender) || !emailRegex.test(recipient)) {
-            setError('Please provide valid sender and recipient email addresses.');
-            return;
-        }
-
-        // Check if the SMTP server and port are valid
-        const smtpServerRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        if (!smtpServerRegex.test(smtpServer)) {
-            setError('Please provide a valid SMTP server address.');
-            return;
-        }
-        // Check if the SMTP port is a valid number
-        if (isNaN(smtpPort) || smtpPort <= 0 || smtpPort > 65535) {
-            setError('Please provide a valid SMTP port number.');
-            return;
-        }
-    
-        // Pass email configuration to parent component via update prop
+        const alertNotifConfig: IAlertNotifSetupInput = {
+            enableEmail,
+            emailConfig: enableEmail ? emailConfig : undefined,
+            enableSMS,
+            smsRecipient: enableSMS ? smsRecipient : undefined,
+        };
         update(alertNotifConfig);
         advanceStep();
     };
@@ -61,70 +51,76 @@ const AlertNotifSetupComponent: FunctionComponent<IAlertNotifSetupProps> = ({ ad
     return (
         <div className="container-fluid vspacer-100 d-flex p-0 flex-column h-100" style={{ borderTop: "1px solid #CCC" }}>
             <div className="vspacer-20"></div>
-            <p className="lead text-center">We will set up an email address for alerting system</p>
+            <p className="lead text-center">Set up notification preferences</p>
             <div className="vspacer-20"></div>
             <div className="container">
                 {error && <div className="mx-auto col-sm-8 d-flex flex-row alert alert-danger text-left">ERROR –– {error}</div>}
                 <div className="mb-3 d-flex flex-row">
                     <label className="col-sm-4 col-form-label text-right">
-                        <h4>Sender</h4>
+                        <h4>Enable Email Notifications</h4>
                     </label>
                     <div className="col-sm-4">
-                        <input className="form-control"
-                        type="text"
-                        name="sender"
-                        onChange={handleDataChange("sender")}
-                        value={alertNotifConfig.sender} placeholder="sender@email.com" />
+                        <input
+                            type="checkbox"
+                            checked={enableEmail}
+                            onChange={(e) => setEnableEmail(e.target.checked)}
+                        />
                     </div>
                 </div>
+                {enableEmail && (
+                    <>
+                        <div className="mb-3 d-flex flex-row">
+                            <label className="col-sm-4 col-form-label text-right">Sender</label>
+                            <div className="col-sm-4">
+                                <input className="form-control" type="text" value={emailConfig.sender} onChange={handleEmailConfigChange("sender")} placeholder="sender@email.com" />
+                            </div>
+                        </div>
+                        <div className="mb-3 d-flex flex-row">
+                            <label className="col-sm-4 col-form-label text-right">Recipient</label>
+                            <div className="col-sm-4">
+                                <input className="form-control" type="text" value={emailConfig.recipient} onChange={handleEmailConfigChange("recipient")} placeholder="recipient@email.com" />
+                            </div>
+                        </div>
+                        <div className="mb-3 d-flex flex-row">
+                            <label className="col-sm-4 col-form-label text-right">SMTP Server</label>
+                            <div className="col-sm-4">
+                                <input className="form-control" type="text" value={emailConfig.smtpServer} onChange={handleEmailConfigChange("smtpServer")} placeholder="smtp.google.com" />
+                            </div>
+                        </div>
+                        <div className="mb-3 d-flex flex-row">
+                            <label className="col-sm-4 col-form-label text-right">SMTP Port</label>
+                            <div className="col-sm-4">
+                                <input className="form-control" type="number" value={emailConfig.smtpPort} onChange={(e) => setEmailConfig({ ...emailConfig, smtpPort: parseInt(e.target.value) })} placeholder="587" />
+                            </div>
+                        </div>
+                        <div className="mb-3 d-flex flex-row">
+                            <label className="col-sm-4 col-form-label text-right">Password</label>
+                            <div className="col-sm-4">
+                                <input className="form-control" type="password" value={emailConfig.password} onChange={handleEmailConfigChange("password")} placeholder="······" />
+                            </div>
+                        </div>
+                    </>
+                )}
                 <div className="mb-3 d-flex flex-row">
                     <label className="col-sm-4 col-form-label text-right">
-                        <h4>Recipient</h4>
+                        <h4>Enable SMS Notifications</h4>
                     </label>
                     <div className="col-sm-4">
-                        <input className="form-control"
-                        type="text"
-                        name="recipient"
-                        onChange={handleDataChange("recipient")}
-                        value={alertNotifConfig.recipient} placeholder="recipient@email.com" />
+                        <input
+                            type="checkbox"
+                            checked={enableSMS}
+                            onChange={(e) => setEnableSMS(e.target.checked)}
+                        />
                     </div>
                 </div>
-                <div className="mb-3 d-flex flex-row">
-                    <label className="col-sm-4 col-form-label text-right">
-                        <h4>SMTP Server</h4>
-                    </label>
-                    <div className="col-sm-4">
-                        <input className="form-control"
-                        type="text"
-                        name="smtpServer"
-                        onChange={handleDataChange("smtpServer")}
-                        value={alertNotifConfig.smtpServer} placeholder="smtp.google.com" />
+                {enableSMS && (
+                    <div className="mb-3 d-flex flex-row">
+                        <label className="col-sm-4 col-form-label text-right">Recipient Phone Number</label>
+                        <div className="col-sm-4">
+                            <input className="form-control" type="text" value={smsRecipient} onChange={(e) => setSmsRecipient(e.target.value)} placeholder="+1234567890" />
+                        </div>
                     </div>
-                </div>
-                <div className="mb-3 d-flex flex-row">
-                    <label className="col-sm-4 col-form-label text-right">
-                        <h4>SMTP Port</h4>
-                    </label>
-                    <div className="col-sm-4">
-                        <input className="form-control"
-                        type="text"
-                        name="smtpPort"
-                        onChange={handleDataChange("smtpPort")}
-                        value={alertNotifConfig.smtpPort} placeholder="587" />
-                    </div>
-                </div>
-                <div className="mb-3 d-flex flex-row">
-                    <label className="col-sm-4 col-form-label text-right">
-                        <h4>Password</h4>
-                    </label>
-                    <div className="col-sm-4">
-                        <input className="form-control"
-                        name="password"
-                        onChange={handleDataChange("password")}
-                        value={alertNotifConfig.password} 
-                         type="password" placeholder="······" />
-                    </div>
-                </div>
+                )}
             </div>
             <div className="vspacer-50" />
             <hr />

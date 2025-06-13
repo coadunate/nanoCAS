@@ -75,8 +75,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
             const res = await validateLocations(add_databases, databaseSetupInput.locations);
             const v_code = res.data.code;
 
-            if (v_code === 0) { // Locations are valid
-                // Generate UUID only when initiating
+            if (v_code === 0) {
                 const res_uid = await getUniqueUID(databaseSetupInput.locations);
                 const newUID = res_uid.data.uid;
                 setUID(newUID);
@@ -111,7 +110,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
             console.error(err);
         }
     };
-    console.log(databaseSetupInput)
+
     return (
         <div className="container text-center">
             <div className="vspacer-20" />
@@ -151,11 +150,20 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 <tr><th colSpan={3}>Alert Notification</th></tr>
                 </thead>
                 <tbody>
-                <tr><th>Sender</th><td colSpan={2}>{alertNotifSetupInput.sender}</td></tr>
-                <tr><th>Recipient</th><td colSpan={2}>{alertNotifSetupInput.recipient}</td></tr>
-                <tr><th>SMTP Server</th><td colSpan={2}>{alertNotifSetupInput.smtpServer}</td></tr>
-                <tr><th>SMTP Port</th><td colSpan={2}>{alertNotifSetupInput.smtpPort}</td></tr>
-                <tr><th>Password</th><td colSpan={2}>{alertNotifSetupInput.password}</td></tr>
+                <tr><th>Email Notifications</th><td colSpan={2}>{alertNotifSetupInput.enableEmail ? 'Enabled' : 'Disabled'}</td></tr>
+                {alertNotifSetupInput.enableEmail && alertNotifSetupInput.emailConfig && (
+                    <>
+                        <tr><td></td><td colSpan={2}>Sender: {alertNotifSetupInput.emailConfig.sender}</td></tr>
+                        <tr><td></td><td colSpan={2}>Recipient: {alertNotifSetupInput.emailConfig.recipient}</td></tr>
+                        <tr><td></td><td colSpan={2}>SMTP Server: {alertNotifSetupInput.emailConfig.smtpServer}</td></tr>
+                        <tr><td></td><td colSpan={2}>SMTP Port: {alertNotifSetupInput.emailConfig.smtpPort}</td></tr>
+                        <tr><td></td><td colSpan={2}>Password: {alertNotifSetupInput.emailConfig.password ? '[set]' : '[not set]'}</td></tr>
+                    </>
+                )}
+                <tr><th>SMS Notifications</th><td colSpan={2}>{alertNotifSetupInput.enableSMS ? 'Enabled' : 'Disabled'}</td></tr>
+                {alertNotifSetupInput.enableSMS && alertNotifSetupInput.smsRecipient && (
+                    <tr><td></td><td colSpan={2}>Recipient Phone Number: {alertNotifSetupInput.smsRecipient}</td></tr>
+                )}
                 </tbody>
             </table>
             <div className="vspacer-20" />

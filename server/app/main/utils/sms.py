@@ -4,21 +4,17 @@ from twilio.base.exceptions import TwilioRestException
 import logging
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 logger = logging.getLogger('nanocas')
 
-def send_sms(body):
-    """Send an SMS alert using Twilio."""
+def send_sms(body, recipient_phone):
     account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
     twilio_phone = os.getenv('TWILIO_PHONE_NUMBER')
-    recipient_phone = os.getenv('ALERT_RECIPIENT_PHONE')
 
-    # Check if all required Twilio credentials are provided
     if not all([account_sid, auth_token, twilio_phone, recipient_phone]):
-        logger.error("Twilio configuration missing in .env file. SMS not sent.")
+        logger.error("Twilio configuration or recipient phone missing. SMS not sent.")
         return
 
     try:

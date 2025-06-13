@@ -13,7 +13,6 @@ import {
 } from "./setup-steps/database-setup/database-setup.interfaces";
 import {IAlertNotifSetupInput} from "./setup-steps/alert-notif-setup/alert-notif-setup.interfaces";
 
-
 const qrs: IAdditionalSequences = {
     queries: [
         {name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: ""},
@@ -27,24 +26,18 @@ const initial_db_setup_input: IDatabseSetupInput = {
     fileType: 'FASTQ'
 };
 
-const initil_alert_notif_setup_input : IAlertNotifSetupInput = {
-    sender: '',
-    recipient: '',
-    smtpServer: '',
-    smtpPort: 587,
-    password: '',
+const initial_alert_notif_setup_input: IAlertNotifSetupInput = {
+    enableEmail: false,
+    enableSMS: false,
 }
-
 
 const SetupComponent = () => {
     const [stepNumber, setStepNumber] = useState(0);
     const [databaseSetupInput, setDatasetSetupInput] = useState(initial_db_setup_input);
-    const [alertNotifSetupInput, setAlertNotifSetupInput] = useState(initil_alert_notif_setup_input);
+    const [alertNotifSetupInput, setAlertNotifSetupInput] = useState(initial_alert_notif_setup_input);
  
     const advanceStep = () => {
-
-        // if we still have steps left
-        if (stepNumber < (steps.length-1)) {
+        if (stepNumber < (steps.length - 1)) {
             setStepNumber((prev) => prev + 1)
         }
     }
@@ -85,7 +78,7 @@ const SetupComponent = () => {
                 {steps[stepNumber].component}
             </div>
             {stepNumber > 0 && (
-                <button className="btn btn-secondary mt-3" onClick={() => setStepNumber((prev) => prev - 1)}>
+                <button className="btn btn-outline-danger m-2 mx-auto w-20" onClick={() => setStepNumber((prev) => prev - 1)}>
                     Previous
                 </button>
             )}
