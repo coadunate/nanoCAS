@@ -49,19 +49,24 @@
 
 .nano-info-item {
   display: flex;
+  border: 1px solid var(--ont-secondary);
+  border-radius: var(--ont-border-radius-md);
+  background-color: var(--ont-light-gray);
+  padding: var(--ont-spacing-md);
   flex-direction: column;
 }
 
 .nano-info-label {
   font-size: 0.875rem;
-  color: var(--ont-medium-gray);
+  color: var(--ont-black);
   margin-bottom: var(--ont-spacing-xs);
+  font-weight: bolder;
 }
 
 .nano-info-value {
   font-size: 1rem;
   font-weight: 500;
-  color: var(--ont-black);
+  color: var(--ont-medium-gray);
   word-break: break-word;
 }
 
@@ -69,6 +74,7 @@
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 50px;
+  border: 3px solid black;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--ont-white);

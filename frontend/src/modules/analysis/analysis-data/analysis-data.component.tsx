@@ -200,7 +200,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     return (
         <div className="nano-analysis-container">
             <h2 className="nano-section-title">Analysis Dashboard</h2>
-            <div className="ont-card nano-analysis-card">
+            <div className="nano-card nano-analysis-card">
                 <div className="nano-card-header">
                     <h3 className="nano-card-title">Analysis Information</h3>
                 </div>
@@ -215,18 +215,14 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                             <span className="nano-info-value">{analysisData.data.minion.split("/").filter(component => component !== '').join(' ➩ ')}</span>
                         </div>
                         <div className="nano-info-item">
-                            <span className="nano-info-label">Device</span>
-                            <span className="nano-info-value">{analysisData.data.device || "Not specified"}</span>
-                        </div>
-                        <div className="nano-info-item">
                             <span className="nano-info-label">Status</span>
-                            <span className={`ont-status-badge ${listenerRunning ? 'ont-status-running' : 'ont-status-stopped'}`}>
+                            <span className={`nano-status-badge ${listenerRunning ? 'nano-status-running' : 'nano-status-stopped'}`}>
                                 {listenerRunning ? 'Running' : 'Stopped'}
                             </span>
                         </div>
                     </div>
-                    {error && <div className="ont-alert nano-alert-danger">{error}</div>}
-                    {fetchError && <div className="ont-alert nano-alert-danger pl-2">{fetchError}</div>}
+                    {error && <div className="nano-alert nano-alert-danger">{error}</div>}
+                    {fetchError && <div className="nano-alert nano-alert-danger pl-2">{fetchError}</div>}
                     <div className="nano-actions">
                         {listenerRunning ? (
                             <button className="btn btn-danger nano-btn" onClick={handleStopFileListener}>
@@ -245,7 +241,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             </div>
 
             {/* Coverage Plot */}
-            <div className="ont-card nano-chart-card">
+            <div className="nano-card nano-chart-card">
                 <div className="nano-card-header d-flex justify-content-between align-items-center">
                     <h3 className="nano-card-title">Coverage Over Time</h3>
                     <div className="d-flex gap-2">
@@ -291,7 +287,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             </div>
 
             {/* Sankey Plot */}
-            <div className="ont-card nano-chart-card">
+            <div className="nano-card nano-chart-card">
                 <div className="nano-card-header">
                     <h3 className="nano-card-title">Alert Sequences Distribution</h3>
                 </div>

@@ -32,7 +32,6 @@ const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanc
     return (
         <div className="container-fluid vspacer-100 d-flex p-0 flex-column h-100" style={{ borderTop: "1px solid #CCC" }}>
             <div className="row justify-content-around">
-                <AlertConfigurationComponent initialConfig={initial_alert_config} updateConfig={setAlertConfig} />
                 <LocationsSetupComponent initialConfig={initial_location_config} updateConfig={setLocationConfig} />
                 <div className="col-lg-5 m-0 container">
                     <br />
