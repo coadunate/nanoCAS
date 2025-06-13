@@ -6,6 +6,8 @@ import axios from "axios";
 import AnalysisDataComponent from "../analysis/analysis-data/analysis-data.component"
 import {IAnalysisData} from "./analysis-data/analysis-data.interfaces";
 
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
+
 const initial_analysis_data_state: IAnalysisData = {
     "status": 404,
     "data"  : {
@@ -34,10 +36,9 @@ const AnalysisComponent = () => {
     },[params.id]);
 
     const get_analysis_info = (uid: string) => {
-
         return axios({
             method: "GET",
-            url   : `http://localhost:5007/get_analysis_info?uid=${uid}`
+            url: `${API_ENDPOINT}/get_analysis_info?uid=${uid}`
         });
     };
 

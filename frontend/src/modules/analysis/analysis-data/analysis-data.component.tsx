@@ -6,6 +6,8 @@ import axios from "axios";
 import { Dropdown, Modal, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 import './analysis-data.component.css';
 
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
+
 const POLLING_INTERVAL_MS = 10000;
 
 const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) => {
@@ -32,7 +34,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
 
     const checkDatabaseStatus = async (projectId: string) => {
         try {
-            const res = await axios.get(`http://localhost:5007/check_database_status?projectId=${projectId}`);
+            const res = await axios.get(`${API_ENDPOINT}/check_database_status?projectId=${projectId}`);
             console.log("Database status response:", res.data);
             return res.data.is_ready;
         } catch (error) {
@@ -75,7 +77,9 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         const fetchData = async () => {
             setError(null); // Clear previous errors before fetching
             try {
-                const coverageRes = await axios.get(`http://localhost:5007/get_coverage?projectId=${analysisData.data.projectId}`);
+                const coverageRes = await axios.get(`${API_ENDPOINT}/get_coverage?projectId=${analysisData.data.projectId}`);
+                const analysisRes = await axios.get(`${API_ENDPOINT}/get_analysis_info?uid=${analysisData.data.projectId}`);
+                
                 const newCoverageData = coverageRes.data;
                 setCoverageData(newCoverageData);
                 const map = new Map<string, any>();
@@ -85,7 +89,6 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                 });
                 setCoverageMap(map);
 
-                const analysisRes = await axios.get(`http://localhost:5007/get_analysis_info?uid=${analysisData.data.projectId}`);
                 if (analysisRes.data.status === 200) {
                     setAnalysisData(analysisRes.data);
                 }

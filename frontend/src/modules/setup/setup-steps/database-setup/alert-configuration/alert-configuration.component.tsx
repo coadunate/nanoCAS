@@ -1,6 +1,9 @@
 import React, {FunctionComponent, useEffect, useState} from "react";
 import axios from "axios";
 import {IDatabaseSetupConstituent} from "../database-setup.interfaces";
+
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
+
 const AlertConfigurationComponent: FunctionComponent<IDatabaseSetupConstituent> = ({updateConfig}) => {
     const [devices, setDevices] = useState<string[]>([]);
     const [loaded, setLoaded] = useState(false);
@@ -24,7 +27,7 @@ const AlertConfigurationComponent: FunctionComponent<IDatabaseSetupConstituent> 
     const get_devices = () => {
         return axios({
             method: 'GET',
-            url: 'http://localhost:5007/index_devices'
+            url: `${API_ENDPOINT}/index_devices`
         });
     };
 

@@ -1,6 +1,8 @@
 # FILE: ./nanocas.py
 # The main entry point in the application
 
+from dotenv import load_dotenv
+import os
 import logging
 import sys
 from app import create_app, socketio
@@ -24,4 +26,5 @@ if not logger.handlers:  # Prevent duplicate handlers
 app = create_app(debug=True)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5007)
+    port = int(os.getenv('BACKEND_PORT', 5007))  # Already uses env variable
+    socketio.run(app, host='0.0.0.0', port=port)

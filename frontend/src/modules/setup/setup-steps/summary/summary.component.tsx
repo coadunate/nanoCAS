@@ -5,6 +5,8 @@ import axios from "axios";
 import { socket } from "../../../../app.component";
 import { IAlertNotifSetupInput } from '../alert-notif-setup/alert-notif-setup.interfaces';
 
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
+
 const VALIDATION_STATES = {
     NOT_STARTED: 0,
     PENDING: 1,
@@ -29,7 +31,7 @@ const validateLocations = (queries: IQuery[], locations: ILocationConfig) => {
 
     return axios({
         method: 'POST',
-        url: 'http://localhost:5007/validate_locations',
+        url: `${API_ENDPOINT}/validate_locations`,
         data: locationData,
         headers: {"Content-Type": "multipart/form-data"},
     })
@@ -41,7 +43,7 @@ const getUniqueUID = (locations: ILocationConfig) => {
 
     return axios({
         method: "POST",
-        url: 'http://localhost:5007/get_uid',
+        url: `${API_ENDPOINT}/get_uid`,
         data: locationData
     })
 }

@@ -325,6 +325,9 @@ def setup_node_environment():
 def setup_docker_environment(config):
     """Set up Docker environment with docker-compose."""
     logger.info("Setting up Docker environment...")
+
+    with open('frontend/.env', 'w') as f:
+        f.write(f"REACT_APP_API_ENDPOINT=http://localhost:{config['backend_port']}\n")
     
     try:
         # Create .env file for docker-compose
@@ -333,6 +336,8 @@ def setup_docker_environment(config):
             f.write(f"FRONTEND_PORT={config['frontend_port']}\n")
             f.write(f"ENV={config['env']}\n")
             f.write(f"ENABLE_DISTRIBUTED={'true' if config['distributed'] else 'false'}\n")
+            f.write("REDIS_HOST=localhost\n")
+            f.write("REDIS_PORT=6379\n")  # Add Redis port
         
         # Start the containers
         if config['env'] == 'production':

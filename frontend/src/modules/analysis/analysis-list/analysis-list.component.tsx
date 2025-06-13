@@ -3,6 +3,8 @@ import {ListGroup} from "react-bootstrap";
 import {Link} from "react-router-dom";
 import axios from "axios";
 
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
+
 type IAnalysisMetaData = {
     id: string,
     minion_dir: string,
@@ -29,7 +31,7 @@ const ListRenderer: FunctionComponent<IListRendererProps> = ({analyses, update})
             uid.append('uid', id);
             const res = await axios({
                 method: 'POST',
-                url: 'http://localhost:5007/delete_analyses',
+                url: `${API_ENDPOINT}/delete_analyses`,
                 data: uid,
                 headers: {"Content-Type": "multipart/form-data"},
             })
@@ -91,7 +93,7 @@ const AnalysisListComponent = () => {
     const getAllAnalyses = () => {
         return axios({
             method: "GET",
-            url   : "http://localhost:5007/get_all_analyses",
+            url: `${API_ENDPOINT}/get_all_analyses`,
             withCredentials: false
         });
     };

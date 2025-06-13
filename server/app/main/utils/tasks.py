@@ -1,7 +1,12 @@
+import os
 from celery import Celery
 import subprocess, os, shutil, datetime
 import json, sys
 import logging
+
+redis_host = os.getenv('REDIS_HOST', 'localhost')
+redis_port = os.getenv('REDIS_PORT', '6379')
+broker_url = f'redis://{redis_host}:{redis_port}'
 
 # Configure the 'nanocas' logger for Celery tasks
 logger = logging.getLogger('nanocas')
@@ -13,7 +18,7 @@ if not logger.handlers:  # Prevent duplicate handlers
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
-celery = Celery('tasks', broker='redis://localhost', backend='redis')
+celery = Celery('tasks', broker=broker_url, backend='redis')
 
 @celery.task(bind=True, name='app.main.tasks.int_download_database')
 def int_download_database(self, db_data, nanocas_location, queries):

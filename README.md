@@ -85,6 +85,10 @@ nanoCAS supports sending SMS alerts using Twilio when a sequence of interest mee
   TWILIO_PHONE_NUMBER=your_twilio_phone_number
   ALERT_RECIPIENT_PHONE=recipient_phone_number
 
+- **Redis Port**: Set `REDIS_PORT` in `.env` (e.g., `REDIS_PORT=6380`) to change the Redis port.
+
+- **API Endpoint**: Set `REACT_APP_API_ENDPOINT` in `frontend/.env` (e.g., `REACT_APP_API_ENDPOINT=http://my-server:5007`) to change the backend URL.
+
 ### Manual Installation
 
 For environments where Docker is not available or for development purposes:
