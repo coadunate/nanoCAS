@@ -1,4 +1,4 @@
-import {IAdditionalSequences} from "./additional-sequences-setup/additional-sequences-setup.interfaces";
+import {IAdditionalSequences} from "./alert-data-setup/alert-data-setup.interfaces";
 import {IAlertConfig} from "./alert-configuration/alert-configuration.interfaces"
 import React from "react";
 
@@ -10,7 +10,6 @@ type IDatabseSetupInput = {
     queries: IAdditionalSequences,
     locations: ILocationConfig,
     device: IAlertConfig,
-    fileType: 'FASTQ' | 'BAM'
 }
 
 

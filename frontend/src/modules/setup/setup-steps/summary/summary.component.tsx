@@ -1,6 +1,6 @@
 import React, { FunctionComponent, useState } from 'react';
 import { IDatabseSetupInput, ILocationConfig } from "../database-setup/database-setup.interfaces";
-import { IQuery } from "../database-setup/additional-sequences-setup/additional-sequences-setup.interfaces";
+import { IQuery } from "../database-setup/alert-data-setup/alert-data-setup.interfaces";
 import axios from "axios";
 import { socket } from "../../../../app.component";
 import { IAlertNotifSetupInput } from '../alert-notif-setup/alert-notif-setup.interfaces';
@@ -88,7 +88,6 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                     queries: add_databases,
                     projectId: newUID,
                     device: databaseSetupInput.device.device,
-                    fileType: databaseSetupInput.fileType,
                     alertNotifConfig: alertNotifSetupInput
                 };
 
@@ -144,7 +143,6 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                 <tbody>
                 <tr><th>Nanopore Directory</th><td colSpan={2}>{databaseSetupInput.locations.nanoporeLocation}</td></tr>
                 <tr><th>Sequencing Device</th><td colSpan={2}>{databaseSetupInput.device.device || "Not provided"}</td></tr>
-                <tr><th>File Type</th><td colSpan={2}>{databaseSetupInput.fileType}</td></tr>
                 </tbody>
                 <thead className="thead-light">
                 <tr><th colSpan={3}>Alert Notification</th></tr>

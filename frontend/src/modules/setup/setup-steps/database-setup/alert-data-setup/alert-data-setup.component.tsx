@@ -3,7 +3,7 @@ import { IDatabaseSetupConstituent } from "../database-setup.interfaces";
 
 type IKeys = "name" | "file" | "threshold" | "alert";
 
-const AdditionalSequencesSetupComponent: FunctionComponent<IDatabaseSetupConstituent> = ({ updateConfig }) => {
+const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent> = ({ updateConfig }) => {
     const [queries, setQueries] = useState([
         { name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: "" }
     ]);
@@ -111,4 +111,4 @@ const AdditionalSequencesSetupComponent: FunctionComponent<IDatabaseSetupConstit
     );
 };
 
-export default AdditionalSequencesSetupComponent;
+export default AlertDataSetup;

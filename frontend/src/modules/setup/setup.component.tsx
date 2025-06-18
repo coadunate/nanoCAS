@@ -7,7 +7,7 @@ import SummaryComponent from "./setup-steps/summary/summary.component";
 import "./setup.component.css";
 import {
     IAdditionalSequences
-} from "./setup-steps/database-setup/additional-sequences-setup/additional-sequences-setup.interfaces";
+} from "./setup-steps/database-setup/alert-data-setup/alert-data-setup.interfaces";
 import {
     IDatabseSetupInput
 } from "./setup-steps/database-setup/database-setup.interfaces";
@@ -22,8 +22,7 @@ const qrs: IAdditionalSequences = {
 const initial_db_setup_input: IDatabseSetupInput = {
     queries  : qrs,
     locations: {nanoporeLocation: ""},
-    device: {device: ""},
-    fileType: 'FASTQ'
+    device: {device: ""}
 };
 
 const initial_alert_notif_setup_input: IAlertNotifSetupInput = {
