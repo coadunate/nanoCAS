@@ -1,12 +1,12 @@
 import React, { FunctionComponent, useState } from 'react';
 import AlertDataSetup from "./alert-data-setup/alert-data-setup.component";
 import { ILocationConfig } from "./database-setup.interfaces";
-import { IAdditionalSequences } from "./alert-data-setup/alert-data-setup.interfaces";
+import { IAlertData } from "./alert-data-setup/alert-data-setup.interfaces";
 import { IDatabaseSetupProps } from '../../setup.interfaces';
 import LocationsSetupComponent from "./locations-setup/locations-setup.component";
 import { IAlertConfig } from "./alert-configuration/alert-configuration.interfaces";
 
-const initial_additional_sequences_config: IAdditionalSequences = { queries: [] };
+const initial_additional_sequences_config: IAlertData = { queries: [] };
 const initial_location_config: ILocationConfig = { nanoporeLocation: "" };
 const initial_alert_config: IAlertConfig = { device: "" };
 

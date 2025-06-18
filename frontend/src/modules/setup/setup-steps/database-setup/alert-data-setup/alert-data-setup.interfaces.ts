@@ -1,4 +1,4 @@
-type IAdditionalSequences = {
+type IAlertData = {
     queries: IQuery[]
 }
 
@@ -12,6 +12,6 @@ type IQuery = {
 }
 
 export type {
-    IAdditionalSequences,
+    IAlertData,
     IQuery
 }

@@ -6,14 +6,14 @@ import AlertNotifSetupComponent from './setup-steps/alert-notif-setup/alert-noti
 import SummaryComponent from "./setup-steps/summary/summary.component";
 import "./setup.component.css";
 import {
-    IAdditionalSequences
+    IAlertData
 } from "./setup-steps/database-setup/alert-data-setup/alert-data-setup.interfaces";
 import {
     IDatabseSetupInput
 } from "./setup-steps/database-setup/database-setup.interfaces";
 import {IAlertNotifSetupInput} from "./setup-steps/alert-notif-setup/alert-notif-setup.interfaces";
 
-const qrs: IAdditionalSequences = {
+const qrs: IAlertData = {
     queries: [
         {name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: ""},
     ]
