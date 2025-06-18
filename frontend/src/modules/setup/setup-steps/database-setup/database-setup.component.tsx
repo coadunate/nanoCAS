@@ -4,11 +4,11 @@ import { ILocationConfig } from "./database-setup.interfaces";
 import { IAlertData } from "./alert-data-setup/alert-data-setup.interfaces";
 import { IDatabaseSetupProps } from '../../setup.interfaces';
 import LocationsSetupComponent from "./locations-setup/locations-setup.component";
-import { IAlertConfig } from "./alert-configuration/alert-configuration.interfaces";
+import { IDeviceConfig } from "./device-configuration/device-configuration.interfaces";
 
 const initial_additional_sequences_config: IAlertData = { queries: [] };
 const initial_location_config: ILocationConfig = { nanoporeLocation: "" };
-const initial_alert_config: IAlertConfig = { device: "" };
+const initial_alert_config: IDeviceConfig = { device: "" };
 
 const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanceStep, update }) => {
     const [additionalSequences, setAdditionalSequences] = useState(initial_additional_sequences_config);

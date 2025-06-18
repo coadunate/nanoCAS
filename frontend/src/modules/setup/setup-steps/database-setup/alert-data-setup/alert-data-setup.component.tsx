@@ -1,113 +1,195 @@
 import React, { FunctionComponent, useEffect, useState } from "react";
 import { IDatabaseSetupConstituent } from "../database-setup.interfaces";
+import { Modal, Button, Form, Table } from "react-bootstrap";
+import { IQuery } from "./alert-data-setup.interfaces";
+import { IAlertData } from "./alert-data-setup.interfaces";
 
 type IKeys = "name" | "file" | "threshold" | "alert";
 
-const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent> = ({ updateConfig }) => {
-    const [queries, setQueries] = useState([
-        { name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: "" }
-    ]);
+const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> = ({ updateConfig }) => {
+    const [queries, setQueries] = useState<IQuery[]>([]);
+    const [showModal, setShowModal] = useState(false);
 
-    const handleDataChange = (idx: number, key: IKeys) => (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const value = evt.target.value;
-        const newQueries = queries.map((query, sidx) => {
-            if (idx !== sidx) return query;
-            return key === "alert" ? { ...query, [key]: evt.target.checked } : { ...query, [key]: value };
-        });
-        setQueries(newQueries);
+    const handleAddQuery = (newQuery: IQuery) => {
+        setQueries((prev) => [...prev, newQuery]);
+        setShowModal(false);
     };
 
-    const handleAddQuery = () => {
-        const lastQuery = queries[queries.length - 1];
-        if (lastQuery && (!lastQuery.name || !lastQuery.file || !lastQuery.threshold)) {
-            alert("Please fill all fields in the current query before adding a new one.");
-            return;
-        }
-        setQueries((prev) => [...prev, { name: "", file: "", threshold: "", current_fold_change: 0, alert: false, header: "" }]);
-    };
-
-    const handleRemoveQuery = (idx: number) => () => {
-        const newQueries = queries.filter((s, sidx) => idx !== sidx);
-        setQueries(newQueries);
+    const handleRemoveQuery = (index: number) => {
+        setQueries((prev) => prev.filter((_, i) => i !== index));
     };
 
     useEffect(() => {
-        updateConfig((prevState: any) => ({
-            ...prevState,
-            queries: queries
-        }));
+        updateConfig({ queries });
     }, [queries, updateConfig]);
 
     return (
-        <>
-            <div className="vspacer-50 container text-center ">
-                <br />
-            </div>
-            <div className="vspacer-50 " />
+        <div className="container">
+            <h4 className="">Alert Sequences</h4>
+            <p className="text-muted">Configure sequences to monitor during analysis.</p>
             {queries.length === 0 ? (
-                <div className="container text-center">
-                    No queries found. Add new by clicking the '+' button below.
+                <div className="text-center text-muted py-3">
+                    No alert data added yet. Click '+' below to add alert data.
                 </div>
             ) : (
-                queries.map((q, i) => (
-                    <div key={i} className="container text-center pb-2">
-                        <div className="row p-0 m-0 ">
-                            <div className="col-sm-4">
-                                <input
-                                    id="filePathText"
-                                    name="filePathText"
-                                    type="text"
-                                    placeholder="Sequence file /path/to/file.fasta"
-                                    onChange={handleDataChange(i, "file")}
-                                    className="form-control"
-                                    accept=".fasta,.fna,.ffn,.faa,.frn,.fa"
-                                />
-                            </div>
-                            <div className="col-sm-3">
-                                <input
-                                    id="fastaNameText"
-                                    name="fastaNameText"
-                                    type="text"
-                                    onChange={handleDataChange(i, "name")}
-                                    placeholder="Sequence Identifier"
-                                    className="form-control"
-                                />
-                            </div>
-                            <div className="col-sm-2">
-                                <input
-                                    id="alertCheck"
-                                    name="alertCheck"
-                                    type="checkbox"
-                                    onChange={handleDataChange(i, "alert")}
-                                />
-                                <label htmlFor="alertCheck">Alert?</label>
-                            </div>
-                            <div className="col-sm-2">
-                                <input
-                                    id="thresholdText"
-                                    name="thresholdText"
-                                    type="number"
-                                    placeholder="Fold Coverage Threshold (x)"
-                                    onChange={handleDataChange(i, "threshold")}
-                                    className="form-control"
-                                    min="0"
-                                />
-                            </div>
-                            <div className="col-sm-1">
-                                <button type="button" className="pull-right btn btn-danger" onClick={handleRemoveQuery(i)}>
-                                    <i className="fa fa-trash-alt" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))
+                <Table striped bordered hover responsive className="mt-3">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>File Path</th>
+                            <th>Threshold (x)</th>
+                            <th>Alert</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {queries.map((q, i) => (
+                            <tr key={i}>
+                                <td>{q.name}</td>
+                                <td>{q.file}</td>
+                                <td>{q.threshold}</td>
+                                <td>{q.alert ? "Yes" : "No"}</td>
+                                <td>
+                                    <Button
+                                        variant="danger"
+                                        size="sm"
+                                        onClick={() => handleRemoveQuery(i)}
+                                        aria-label="Remove sequence"
+                                    >
+                                        <i className="fa fa-trash-alt" />
+                                    </Button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </Table>
             )}
-            <div className="row col-lg-1 align-self-end mr-2">
-                <button type="button" className="pull-right btn btn-primary" onClick={handleAddQuery}>
-                    <i className="fa fa-plus" />
-                </button>
+            <div className="text-center">
+                <hr />
+                <Button
+                    variant="primary"
+                    onClick={() => setShowModal(true)}
+                    className="mt-3"
+                ><i className="fa fa-plus" /></Button>
+                <AddAlertModal
+                    show={showModal}
+                    onHide={() => setShowModal(false)}
+                    onAdd={handleAddQuery}
+                />
             </div>
-        </>
+        </div>
+    );
+};
+
+type AddAlertModalProps = {
+    show: boolean;
+    onHide: () => void;
+    onAdd: (newQuery: IQuery) => void;
+};
+
+const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, onAdd }) => {
+    const [newQuery, setNewQuery] = useState<IQuery>({
+        name: "",
+        file: "",
+        threshold: "",
+        current_fold_change: 0,
+        alert: false,
+        header: ""
+    });
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+    const handleChange = (key: keyof IQuery) => (evt: React.ChangeEvent<HTMLInputElement>) => {
+        const value = evt.target.type === "checkbox" ? evt.target.checked : evt.target.value;
+        setNewQuery((prev) => ({ ...prev, [key]: value }));
+        setErrors((prev) => ({ ...prev, [key]: "" }));
+    };
+
+    const validateForm = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!newQuery.name) newErrors.name = "Sequence name is required.";
+        if (!newQuery.file) newErrors.file = "File path is required.";
+        if (!newQuery.threshold) {
+            newErrors.threshold = "Threshold is required.";
+        } else if (isNaN(parseFloat(newQuery.threshold)) || parseFloat(newQuery.threshold) < 0) {
+            newErrors.threshold = "Threshold must be a positive number.";
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = () => {
+        if (validateForm()) {
+            onAdd(newQuery);
+            setNewQuery({ name: "", file: "", threshold: "", alert: false, current_fold_change: 0, header: "" });
+        }
+    };
+
+    return (
+        <Modal show={show} onHide={onHide} centered>
+            <Modal.Header closeButton>
+                <Modal.Title>Add Alert Sequence</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                <Form>
+                    <Form.Group className="mb-3">
+                        <Form.Label>Sequence Identifier</Form.Label>
+                        <Form.Control
+                            type="text"
+                            placeholder="e.g., Pathogen X"
+                            value={newQuery.name}
+                            onChange={handleChange("name")}
+                            isInvalid={!!errors.name}
+                        />
+                        <Form.Control.Feedback type="invalid">
+                            {errors.name}
+                        </Form.Control.Feedback>
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                        <Form.Label>Sequence File Path</Form.Label>
+                        <Form.Control
+                            type="text"
+                            placeholder="/path/to/file.fasta"
+                            value={newQuery.file}
+                            onChange={handleChange("file")}
+                            isInvalid={!!errors.file}
+                        />
+                        <Form.Control.Feedback type="invalid">
+                            {errors.file}
+                        </Form.Control.Feedback>
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                        <Form.Label>Fold Coverage Threshold (x)</Form.Label>
+                        <Form.Control
+                            type="number"
+                            placeholder="e.g., 10"
+                            value={newQuery.threshold}
+                            onChange={handleChange("threshold")}
+                            min="0"
+                            isInvalid={!!errors.threshold}
+                        />
+                        <Form.Control.Feedback type="invalid">
+                            {errors.threshold}
+                        </Form.Control.Feedback>
+                    </Form.Group>
+                    <Form.Group className="mb-3">
+                        <Form.Check
+                            type="checkbox"
+                            label="Enable Alert"
+                            checked={newQuery.alert}
+                            onChange={handleChange("alert")}
+                        />
+                    </Form.Group>
+                </Form>
+            </Modal.Body>
+            <Modal.Footer>
+                <Button variant="secondary" onClick={onHide}>
+                    Cancel
+                </Button>
+                <Button variant="primary" onClick={handleSubmit}>
+                    Add Sequence
+                </Button>
+            </Modal.Footer>
+        </Modal>
     );
 };
 

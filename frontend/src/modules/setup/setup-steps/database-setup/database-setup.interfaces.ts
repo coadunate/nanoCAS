@@ -1,5 +1,5 @@
 import {IAlertData} from "./alert-data-setup/alert-data-setup.interfaces";
-import {IAlertConfig} from "./alert-configuration/alert-configuration.interfaces"
+import {IDeviceConfig} from "./device-configuration/device-configuration.interfaces"
 import React from "react";
 
 type ILocationConfig = {
@@ -9,13 +9,13 @@ type ILocationConfig = {
 type IDatabseSetupInput = {
     queries: IAlertData,
     locations: ILocationConfig,
-    device: IAlertConfig,
+    device: IDeviceConfig,
 }
 
 
-type IDatabaseSetupConstituent = {
-    initialConfig: IAlertData | ILocationConfig | IAlertConfig,
-    updateConfig: React.Dispatch<React.SetStateAction<ILocationConfig>> | React.Dispatch<React.SetStateAction<IAlertData>> | React.Dispatch<React.SetStateAction<IAlertConfig>>
+type IDatabaseSetupConstituent<T> = {
+    initialConfig: T,
+    updateConfig: React.Dispatch<React.SetStateAction<T>>
 }
 
 export type {

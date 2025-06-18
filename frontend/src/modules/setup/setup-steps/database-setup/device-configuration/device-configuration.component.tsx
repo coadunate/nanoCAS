@@ -1,10 +1,11 @@
 import React, {FunctionComponent, useEffect, useState} from "react";
 import axios from "axios";
 import {IDatabaseSetupConstituent} from "../database-setup.interfaces";
+import { IDeviceConfig } from "./device-configuration.interfaces";
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
 
-const AlertConfigurationComponent: FunctionComponent<IDatabaseSetupConstituent> = ({updateConfig}) => {
+const AlertConfigurationComponent: FunctionComponent<IDatabaseSetupConstituent<IDeviceConfig>> = ({updateConfig}) => {
     const [devices, setDevices] = useState<string[]>([]);
     const [loaded, setLoaded] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState("");
