@@ -34,6 +34,10 @@ class FileHandler(FileSystemEventHandler):
         with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
             self.config = json.load(f)
         self.file_type = self.config.get('fileType', 'FASTQ')
+        self.header_to_query = {}
+        for query in self.config.get("queries", []):
+            for header in query.get("headers", []):
+                self.header_to_query[header] = query
 
     def on_moved(self, event):
         self.on_any_event(event)
@@ -217,32 +221,28 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"Error calculating coverage: {e}")
 
     def check_depth_coverage_alert(self, ref: str, depth_coverage: float):
-        """Check if depth coverage exceeds threshold and send alerts."""
-        with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
-            alertinfo_cfg_data = json.load(f)
-        queries = alertinfo_cfg_data.get("queries", [])
-        device = alertinfo_cfg_data.get("device", "")
-        alert_notif_config = alertinfo_cfg_data.get("alertNotifConfig", {})
-        for query in queries:
-            if ref == query.get("header", ""):
-                threshold = float(query.get("threshold", 0))
-                if depth_coverage >= threshold:
-                    alert_str = f"Alert: {query['name']} depth coverage reached {depth_coverage:.2f}x (threshold: {threshold}x)"
-                    logger.critical(alert_str)
-                    if device:
-                        LinuxNotification.send_notification(device, alert_str)
-                    if alert_notif_config.get("enableEmail", False):
-                        email_config = alert_notif_config.get("emailConfig", {})
-                        if all(key in email_config for key in ["sender", "recipient", "smtpServer", "smtpPort", "password"]):
-                            send_email("nanoCAS Alert", alert_str, email_config)
-                        else:
-                            logger.error("Email configuration is incomplete.")
-                    if alert_notif_config.get("enableSMS", False):
-                        sms_recipient = alert_notif_config.get("smsRecipient", "")
-                        if sms_recipient:
-                            send_sms(alert_str, sms_recipient)
-                        else:
-                            logger.error("SMS recipient phone number is missing.")
+        query = self.header_to_query.get(ref)
+        if query:
+            threshold = float(query.get("threshold", 0))
+            if depth_coverage >= threshold:
+                alert_str = f"Alert: {query['name']} - {ref} depth coverage reached {depth_coverage:.2f}x (threshold: {threshold}x)"
+                logger.critical(alert_str)
+                device = self.config.get("device", "")
+                alert_notif_config = self.config.get("alertNotifConfig", {})
+                if device:
+                    LinuxNotification.send_notification(device, alert_str)
+                if alert_notif_config.get("enableEmail", False):
+                    email_config = alert_notif_config.get("emailConfig", {})
+                    if all(key in email_config for key in ["sender", "recipient", "smtpServer", "smtpPort", "password"]):
+                        send_email("nanoCAS Alert", alert_str, email_config)
+                    else:
+                        logger.error("Email configuration is incomplete.")
+                if alert_notif_config.get("enableSMS", False):
+                    sms_recipient = alert_notif_config.get("smsRecipient", "")
+                    if sms_recipient:
+                        send_sms(alert_str, sms_recipient)
+                    else:
+                        logger.error("SMS recipient phone number is missing.")
 
     def get_existing_files(self, directory):
         """Get list of existing files of the specified type, sorted by modification time."""

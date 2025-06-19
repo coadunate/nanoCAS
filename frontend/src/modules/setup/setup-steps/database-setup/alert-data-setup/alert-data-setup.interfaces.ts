@@ -8,7 +8,7 @@ type IQuery = {
     threshold: string,
     current_fold_change: number,
     alert: boolean,
-    header: string,
+   selected_headers?: string[]
 }
 
 export type {

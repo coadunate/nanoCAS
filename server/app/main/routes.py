@@ -2,8 +2,8 @@ import ast
 import json
 import logging
 import os
-import random
-import string
+import gzip
+import tempfile
 import uuid
 import subprocess
 import glob
@@ -294,7 +294,44 @@ def index_devices():
         return json.dumps(devices)
     # Explicitly return an empty list if not GET (should not happen)
     return json.dumps([])
-    
+
+@main.route('/upload_fasta', methods=['POST'])
+def upload_fasta():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+    temp_dir = tempfile.mkdtemp(dir=NANOCAS_DIR)
+    file_path = os.path.join(temp_dir, file.filename)
+    file.save(file_path)
+    logger.debug(f"Uploaded FASTA file to {file_path}")
+    return jsonify({'file_path': file_path})
+
+@main.route('/parse_fasta_headers', methods=['POST'])
+def parse_fasta_headers():
+    data = request.json
+    file_path = data.get('file_path')
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({'error': 'Invalid file path'}), 400
+    headers = []
+    try:
+        if file_path.endswith('.gz'):
+            with gzip.open(file_path, 'rt') as f:
+                for line in f:
+                    if line.startswith('>'):
+                        headers.append(line[1:].strip())
+        else:
+            with open(file_path, 'r') as f:
+                for line in f:
+                    if line.startswith('>'):
+                        headers.append(line[1:].strip())
+        logger.debug(f"Parsed {len(headers)} headers from {file_path}")
+        return jsonify(headers)
+    except Exception as e:
+        logger.error(f"Error parsing FASTA headers: {e}")
+        return jsonify({'error': str(e)}), 500
+
 def validate_cache(cache_path=CACHE_PATH):
     if not os.path.isfile(cache_path):
         if not os.path.isdir(NANOCAS_DIR):

@@ -90,6 +90,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                     device: databaseSetupInput.device.device,
                     alertNotifConfig: alertNotifSetupInput
                 };
+                console.log("Database Info:", dbInfo);
 
                 socket.emit('log', dbInfo, "DEBUG");
                 socket.emit('download_database', dbInfo, () => {

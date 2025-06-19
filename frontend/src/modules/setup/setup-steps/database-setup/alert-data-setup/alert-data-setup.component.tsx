@@ -3,6 +3,9 @@ import { IDatabaseSetupConstituent } from "../database-setup.interfaces";
 import { Modal, Button, Form, Table } from "react-bootstrap";
 import { IQuery } from "./alert-data-setup.interfaces";
 import { IAlertData } from "./alert-data-setup.interfaces";
+import axios from "axios";
+
+const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
 
 type IKeys = "name" | "file" | "threshold" | "alert";
 
@@ -20,6 +23,7 @@ const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> =
     };
 
     useEffect(() => {
+        console.log("Updating queries in AlertDataSetup:", queries);
         updateConfig({ queries });
     }, [queries, updateConfig]);
 
@@ -88,29 +92,67 @@ type AddAlertModalProps = {
 };
 
 const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, onAdd }) => {
-    const [newQuery, setNewQuery] = useState<IQuery>({
-        name: "",
-        file: "",
-        threshold: "",
-        current_fold_change: 0,
-        alert: false,
-        header: ""
-    });
+    const [file, setFile] = useState<File | null>(null);
+    const [filePath, setFilePath] = useState<string>("");
+    const [headers, setHeaders] = useState<string[]>([]);
+    const [selectedHeaders, setSelectedHeaders] = useState<string[]>([]);
+    const [threshold, setThreshold] = useState("");
+    const [alert, setAlert] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-    const handleChange = (key: keyof IQuery) => (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const value = evt.target.type === "checkbox" ? evt.target.checked : evt.target.value;
-        setNewQuery((prev) => ({ ...prev, [key]: value }));
-        setErrors((prev) => ({ ...prev, [key]: "" }));
+    const handleFileChange = async (evt: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = evt.target.files?.[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            try {
+                const uploadRes = await axios.post(`${API_ENDPOINT}/upload_fasta`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                const filePath = uploadRes.data.file_path;
+                setFilePath(filePath);
+
+                const headersRes = await axios.post(`${API_ENDPOINT}/parse_fasta_headers`, {
+                    file_path: filePath
+                }, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                setHeaders(headersRes.data);
+                setSelectedHeaders([]);
+            } catch (err) {
+                console.error(err);
+                setErrors({ file: 'Failed to parse file' });
+            }
+        }
+    };
+
+    const handleHeaderChange = (evt: React.ChangeEvent<HTMLSelectElement>) => {
+        const options = evt.target.options;
+        const selected: string[] = [];
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].selected) {
+                selected.push(options[i].value);
+            }
+        }
+        setSelectedHeaders(selected);
+    };
+
+    const handleThresholdChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
+        setThreshold(evt.target.value);
+    };
+
+    const handleAlertChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
+        setAlert(evt.target.checked);
     };
 
     const validateForm = () => {
         const newErrors: { [key: string]: string } = {};
-        if (!newQuery.name) newErrors.name = "Sequence name is required.";
-        if (!newQuery.file) newErrors.file = "File path is required.";
-        if (!newQuery.threshold) {
+        if (!file) newErrors.file = "FASTA file is required.";
+        if (selectedHeaders.length === 0) newErrors.header = "At least one header must be selected.";
+        if (!threshold) {
             newErrors.threshold = "Threshold is required.";
-        } else if (isNaN(parseFloat(newQuery.threshold)) || parseFloat(newQuery.threshold) < 0) {
+        } else if (isNaN(parseFloat(threshold)) || parseFloat(threshold) < 0) {
             newErrors.threshold = "Threshold must be a positive number.";
         }
         setErrors(newErrors);
@@ -119,8 +161,24 @@ const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, on
 
     const handleSubmit = () => {
         if (validateForm()) {
-            onAdd(newQuery);
-            setNewQuery({ name: "", file: "", threshold: "", alert: false, current_fold_change: 0, header: "" });
+            const headersToUse = selectedHeaders.includes("ALL") ? headers : selectedHeaders;
+            const newQueries = headersToUse.map(header => ({
+                name: header,
+                file: filePath,
+                threshold,
+                current_fold_change: 0,
+                alert,
+                header
+            }));
+            newQueries.forEach(query => onAdd(query));
+            // Reset form
+            setFile(null);
+            setFilePath("");
+            setHeaders([]);
+            setSelectedHeaders([]);
+            setThreshold("");
+            setAlert(false);
+            setErrors({});
         }
     };
 
@@ -132,38 +190,46 @@ const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, on
             <Modal.Body>
                 <Form>
                     <Form.Group className="mb-3">
-                        <Form.Label>Sequence Identifier</Form.Label>
+                        <Form.Label>FASTA File</Form.Label>
                         <Form.Control
-                            type="text"
-                            placeholder="e.g., Pathogen X"
-                            value={newQuery.name}
-                            onChange={handleChange("name")}
-                            isInvalid={!!errors.name}
-                        />
-                        <Form.Control.Feedback type="invalid">
-                            {errors.name}
-                        </Form.Control.Feedback>
-                    </Form.Group>
-                    <Form.Group className="mb-3">
-                        <Form.Label>Sequence File Path</Form.Label>
-                        <Form.Control
-                            type="text"
-                            placeholder="/path/to/file.fasta"
-                            value={newQuery.file}
-                            onChange={handleChange("file")}
+                            type="file"
+                            accept=".fasta,.fna,.fa,.fasta.gz,.fna.gz,.fa.gz"
+                            onChange={handleFileChange}
                             isInvalid={!!errors.file}
                         />
                         <Form.Control.Feedback type="invalid">
                             {errors.file}
                         </Form.Control.Feedback>
                     </Form.Group>
+                    {headers.length > 0 && (
+                        <Form.Group className="mb-3">
+                            <Form.Label>Select Sequence Headers</Form.Label>
+                            <Form.Select
+                                multiple
+                                value={selectedHeaders}
+                                onChange={handleHeaderChange}
+                                isInvalid={!!errors.header}
+                                size="sm"
+                            >
+                                <option value="ALL">ALL</option>
+                                {headers.map((header, idx) => (
+                                    <option key={idx} value={header}>{header}</option>
+                                ))}
+                            </Form.Select>
+                            <Form.Text className="text-muted">
+                                Use Ctrl/Cmd or Shift to select multiple headers. Select "ALL" to include all sequences.
+                            </Form.Text>
+                            <Form.Control.Feedback type="invalid">
+                                {errors.header}
+                            </Form.Control.Feedback>
+                        </Form.Group>
+                    )}
                     <Form.Group className="mb-3">
                         <Form.Label>Fold Coverage Threshold (x)</Form.Label>
                         <Form.Control
                             type="number"
-                            placeholder="e.g., 10"
-                            value={newQuery.threshold}
-                            onChange={handleChange("threshold")}
+                            value={threshold}
+                            onChange={handleThresholdChange}
                             min="0"
                             isInvalid={!!errors.threshold}
                         />
@@ -175,8 +241,8 @@ const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, on
                         <Form.Check
                             type="checkbox"
                             label="Enable Alert"
-                            checked={newQuery.alert}
-                            onChange={handleChange("alert")}
+                            checked={alert}
+                            onChange={handleAlertChange}
                         />
                     </Form.Group>
                 </Form>
@@ -186,7 +252,7 @@ const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, on
                     Cancel
                 </Button>
                 <Button variant="primary" onClick={handleSubmit}>
-                    Add Sequence
+                    Add Sequences
                 </Button>
             </Modal.Footer>
         </Modal>

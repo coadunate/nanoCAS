@@ -160,7 +160,6 @@ def on_raw_message(message):
 def download_database(dbinfo):
     project_id = dbinfo["projectId"]
     device = dbinfo.get("device", "")
-    alert_notif_config = dbinfo.get("alertNotifConfig", {})
     file_type = dbinfo.get("fileType", "FASTQ")  # Add fileType
     nanocas_location = os.path.join(os.path.expanduser('~'), '.nanocas/' + project_id + '/')
 
@@ -172,6 +171,7 @@ def download_database(dbinfo):
 
     queries = dbinfo["queries"]
     dbinfo["fileType"] = file_type  # Ensure fileType is included
+    print(dbinfo)
     with open(nanocas_location + 'alertinfo.cfg', 'w+') as alert_config_file:
         alert_config_file.write(json.dumps(dbinfo))
 

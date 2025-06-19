@@ -11,19 +11,19 @@ const initial_location_config: ILocationConfig = { nanoporeLocation: "" };
 const initial_alert_config: IDeviceConfig = { device: "" };
 
 const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanceStep, update }) => {
-    const [additionalSequences, setAdditionalSequences] = useState(initial_additional_sequences_config);
+    const [alertData, setAlertData] = useState(initial_additional_sequences_config);
     const [locationConfig, setLocationConfig] = useState(initial_location_config);
     const [alertConfig, setAlertConfig] = useState(initial_alert_config);
 
     const updateDatabaseSetupConfiguration = () => {
-        const invalidQueries = additionalSequences.queries.filter(
+        const invalidQueries = alertData.queries.filter(
             q => !q.threshold || q.threshold.trim() === "" || isNaN(parseFloat(q.threshold))
         );
         if (invalidQueries.length > 0) {
             alert("Please provide a valid threshold for all queries.");
             return;
         }
-        update({ queries: additionalSequences, locations: locationConfig, device: alertConfig });
+        update({ queries: alertData, locations: locationConfig, device: alertConfig });
         advanceStep();
     };
 
@@ -36,7 +36,7 @@ const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanc
             </div>
             <div className="vspacer-50" />
             <div className="twline"><span>ALERT DATA SETUP</span></div>
-            <AlertDataSetup initialConfig={initial_additional_sequences_config} updateConfig={setAdditionalSequences} />
+            <AlertDataSetup initialConfig={initial_additional_sequences_config} updateConfig={setAlertData} />
             <br />
             <div className="vspacer-50" />
             <hr />
