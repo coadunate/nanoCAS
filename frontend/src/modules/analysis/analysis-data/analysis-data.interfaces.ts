@@ -1,4 +1,4 @@
-import { IQuery } from "../../setup/setup-steps/database-setup/additional-sequences-setup/additional-sequences-setup.interfaces";
+import { IQuery } from "../../setup/setup-steps/database-setup/alert-data-setup/alert-data-setup.interfaces";
 
 type IAnalysisData = {
     "status": number,

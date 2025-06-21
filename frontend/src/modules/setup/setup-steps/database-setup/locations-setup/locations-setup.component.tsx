@@ -7,7 +7,7 @@ const initial_location_config: ILocationConfig = {
     nanoporeLocation: ""
 }
 
-const LocationsSetupComponent: FunctionComponent<IDatabaseSetupConstituent> = ({updateConfig}) => {
+const LocationsSetupComponent: FunctionComponent<IDatabaseSetupConstituent<ILocationConfig>> = ({updateConfig}) => {
     const [locationConfig, setLocationConfig] = useState(initial_location_config);
     const [error, setError] = useState("");
 

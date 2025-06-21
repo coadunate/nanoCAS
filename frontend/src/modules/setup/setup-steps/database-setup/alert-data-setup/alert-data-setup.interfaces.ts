@@ -1,5 +1,6 @@
-type IAdditionalSequences = {
-    queries: IQuery[]
+type IAlertData = {
+    queries: IQuery[],
+    gff_file?: string
 }
 
 type IQuery = {
@@ -8,10 +9,10 @@ type IQuery = {
     threshold: string,
     current_fold_change: number,
     alert: boolean,
-    header: string,
+    header?: string
 }
 
 export type {
-    IAdditionalSequences,
+    IAlertData,
     IQuery
 }

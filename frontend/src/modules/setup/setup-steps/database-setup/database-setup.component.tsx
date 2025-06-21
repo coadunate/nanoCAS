@@ -1,57 +1,47 @@
 import React, { FunctionComponent, useState } from 'react';
-import AdditionalSequencesSetupComponent from "./additional-sequences-setup/additional-sequences-setup.component";
+import AlertDataSetup from "./alert-data-setup/alert-data-setup.component";
 import { ILocationConfig } from "./database-setup.interfaces";
-import { IAdditionalSequences } from "./additional-sequences-setup/additional-sequences-setup.interfaces";
+import { IAlertData } from "./alert-data-setup/alert-data-setup.interfaces";
 import { IDatabaseSetupProps } from '../../setup.interfaces';
 import LocationsSetupComponent from "./locations-setup/locations-setup.component";
-import AlertConfigurationComponent from "./alert-configuration/alert-configuration.component";
-import { IAlertConfig } from "./alert-configuration/alert-configuration.interfaces";
+import { IDeviceConfig } from "./device-configuration/device-configuration.interfaces";
 
-const initial_additional_sequences_config: IAdditionalSequences = { queries: [] };
+const initial_additional_sequences_config: IAlertData = { queries: [] };
 const initial_location_config: ILocationConfig = { nanoporeLocation: "" };
-const initial_alert_config: IAlertConfig = { device: "" };
+const initial_alert_config: IDeviceConfig = { device: "" };
 
 const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanceStep, update }) => {
-    const [additionalSequences, setAdditionalSequences] = useState(initial_additional_sequences_config);
+    const [alertData, setAlertData] = useState(initial_additional_sequences_config);
     const [locationConfig, setLocationConfig] = useState(initial_location_config);
     const [alertConfig, setAlertConfig] = useState(initial_alert_config);
-    const [fileType, setFileType] = useState<'FASTQ' | 'BAM'>('FASTQ');
 
     const updateDatabaseSetupConfiguration = () => {
-        const invalidQueries = additionalSequences.queries.filter(
+        const invalidQueries = alertData.queries.filter(
             q => !q.threshold || q.threshold.trim() === "" || isNaN(parseFloat(q.threshold))
         );
         if (invalidQueries.length > 0) {
             alert("Please provide a valid threshold for all queries.");
             return;
         }
-        update({ queries: additionalSequences, locations: locationConfig, device: alertConfig, fileType });
+        update({
+            queries: alertData.queries,
+            gff_file: alertData.gff_file,
+            locations: locationConfig,
+            device: alertConfig
+        });
         advanceStep();
     };
 
     return (
-        <div className="container-fluid vspacer-100 d-flex p-0 flex-column h-100" style={{ borderTop: "1px solid #CCC" }}>
+        <div className="container-fluid vspacer-100 d-flex p-0 flex-column h-100">
+            <div className="vspacer-50" />
+            <div className="twline"><span>NANOPORE SETUP</span></div>
             <div className="row justify-content-around">
                 <LocationsSetupComponent initialConfig={initial_location_config} updateConfig={setLocationConfig} />
-                <div className="col-lg-5 m-0 container">
-                    <br />
-                    <h4>File Type</h4>
-                    <p>Select the expected input file type. For BAM files, ensure they are aligned to the database sequences.</p>
-                    <div className="vspacer-20" />
-                    <select
-                        className="form-control"
-                        value={fileType}
-                        onChange={(e) => setFileType(e.target.value as 'FASTQ' | 'BAM')}
-                    >
-                        <option value="FASTQ">FASTQ</option>
-                        <option value="BAM">BAM</option>
-                    </select>
-                    <br />
-                </div>
             </div>
             <div className="vspacer-50" />
-            <div className="twline"><span>ALERT SEQUENCES</span></div>
-            <AdditionalSequencesSetupComponent initialConfig={initial_additional_sequences_config} updateConfig={setAdditionalSequences} />
+            <div className="twline"><span>ALERT DATA SETUP</span></div>
+            <AlertDataSetup initialConfig={initial_additional_sequences_config} updateConfig={setAlertData} />
             <br />
             <div className="vspacer-50" />
             <hr />

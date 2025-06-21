@@ -4,11 +4,31 @@ import { socket } from "../../../app.component";
 import { Chart } from "react-google-charts";
 import axios from "axios";
 import { Dropdown, Modal, Button, OverlayTrigger, Tooltip } from "react-bootstrap";
+import AlignmentViewer from "./alignment-viewer.component";
 import './analysis-data.component.css';
 
 const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:5007';
 
 const POLLING_INTERVAL_MS = 10000;
+
+interface Alignment {
+    start: number;
+    end: number;
+    strand: string;
+}
+
+interface Region {
+    start: number;
+    end: number;
+    id: string;
+    read_count: number;
+}
+
+interface AlignmentData {
+    ref_length: number;
+    alignments: Alignment[];
+    regions: Region[];
+}
 
 const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) => {
     const [analysisData, setAnalysisData] = useState(data);
@@ -16,9 +36,11 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const [coverageMap, setCoverageMap] = useState(new Map<string, any>());
     const [listenerRunning, setListenerRunning] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [fetchError, setFetchError] = useState<string | null>(null); // Still available but not used for this case
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [metric, setMetric] = useState<'depth' | 'breadth'>('depth');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [selectedReference, setSelectedReference] = useState<string | null>(null);
+    const [alignmentData, setAlignmentData] = useState<AlignmentData | null>(null);
     type TimeUnit = 'seconds' | 'minutes' | 'hours' | 'days';
     const [timeUnit, setTimeUnit] = useState<TimeUnit>('seconds');
     const [isDatabaseReady, setIsDatabaseReady] = useState(false);
@@ -39,10 +61,9 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             return res.data.is_ready;
         } catch (error) {
             console.error("Error checking database status:", error);
-            return false; // Assume not ready if there's an error
+            return false;
         }
     };
-
 
     useEffect(() => {
         socket.emit('check_fastq_file_listener', { projectId: analysisData.data.projectId });
@@ -75,7 +96,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
         socket.on('fastq_file_listener_error', handleListenerError);
 
         const fetchData = async () => {
-            setError(null); // Clear previous errors before fetching
+            setError(null);
             try {
                 const coverageRes = await axios.get(`${API_ENDPOINT}/get_coverage?projectId=${analysisData.data.projectId}`);
                 const analysisRes = await axios.get(`${API_ENDPOINT}/get_analysis_info?uid=${analysisData.data.projectId}`);
@@ -95,24 +116,19 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             } catch (err) {
                 console.error("Error fetching data:", err);
                 if (err.response && err.response.data && err.response.data.error) {
-                    // Set specific error message from server
                     setError(err.response.data.error);
                 } else if (err.response) {
-                    // Handle other server errors with a generic message
                     setError("An error occurred while fetching data.");
                 } else {
-                    // Handle network errors
                     setError("Failed to connect to the server. Please check your network connection.");
                 }
             }
             
-            // Check database status
             const checkStats = await checkDatabaseStatus(analysisData.data.projectId);
             setIsDatabaseReady(checkStats);
             if (!checkStats) {
                 setError("Database is not ready. Please wait for the database to be initialized.");
             }
-
         };
 
         fetchData();
@@ -126,6 +142,21 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
             socket.off('fastq_file_listener_error', handleListenerError);
         };
     }, [analysisData.data.projectId]);
+
+    useEffect(() => {
+        const fetchAlignmentData = async () => {
+            if (selectedReference) {
+                try {
+                    const res = await axios.get(`${API_ENDPOINT}/get_alignments?projectId=${analysisData.data.projectId}&reference=${selectedReference}`);
+                    setAlignmentData(res.data);
+                } catch (err) {
+                    console.error("Error fetching alignment data:", err);
+                    setAlignmentData(null);
+                }
+            }
+        };
+        fetchAlignmentData();
+    }, [selectedReference, analysisData.data.projectId]);
 
     const formatCoverageData = () => {
         const refs = [...new Set(coverageData.map(d => d.reference))].filter(ref => ref !== 'Unmapped');
@@ -282,6 +313,39 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                             <i className="fas fa-trash"></i> Remove Analysis
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {/* Alignment Visualization */}
+            <div className="nano-card nano-chart-card">
+                <div className="nano-card-header d-flex justify-content-between align-items-center">
+                    <h3 className="nano-card-title">Sequence Coverage Visualization</h3>
+                    <Dropdown>
+                        <Dropdown.Toggle variant="secondary" id="referenceDropdown" size="sm">
+                            {selectedReference || "Select Reference"}
+                        </Dropdown.Toggle>
+                        <Dropdown.Menu>
+                            {analysisData.data.queries.map((query, index) => (
+                                <Dropdown.Item key={index} onClick={() => setSelectedReference(query.name)}>
+                                    {query.name}
+                                </Dropdown.Item>
+                            ))}
+                        </Dropdown.Menu>
+                    </Dropdown>
+                </div>
+                <div className="nano-card-body">
+                    {selectedReference && alignmentData ? (
+                        <AlignmentViewer
+                            refId={selectedReference}
+                            refLength={alignmentData.ref_length}
+                            alignments={alignmentData.alignments}
+                            regions={alignmentData.regions}
+                        />
+                    ) : (
+                        <div className="nano-empty-state">
+                            <p>Select a reference to view sequence coverage.</p>
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -1,5 +1,6 @@
-import {IAdditionalSequences} from "./additional-sequences-setup/additional-sequences-setup.interfaces";
-import {IAlertConfig} from "./alert-configuration/alert-configuration.interfaces"
+import {IAlertData} from "./alert-data-setup/alert-data-setup.interfaces";
+import {IQuery} from "./alert-data-setup/alert-data-setup.interfaces"
+import {IDeviceConfig} from "./device-configuration/device-configuration.interfaces"
 import React from "react";
 
 type ILocationConfig = {
@@ -7,16 +8,15 @@ type ILocationConfig = {
 }
 
 type IDatabseSetupInput = {
-    queries: IAdditionalSequences,
+    queries: IQuery[],
+    gff_file?: string,
     locations: ILocationConfig,
-    device: IAlertConfig,
-    fileType: 'FASTQ' | 'BAM'
+    device: IDeviceConfig,
 }
 
-
-type IDatabaseSetupConstituent = {
-    initialConfig: IAdditionalSequences | ILocationConfig | IAlertConfig,
-    updateConfig: React.Dispatch<React.SetStateAction<ILocationConfig>> | React.Dispatch<React.SetStateAction<IAdditionalSequences>> | React.Dispatch<React.SetStateAction<IAlertConfig>>
+type IDatabaseSetupConstituent<T> = {
+    initialConfig: T,
+    updateConfig: React.Dispatch<React.SetStateAction<T>>
 }
 
 export type {

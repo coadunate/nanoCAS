@@ -160,7 +160,6 @@ def on_raw_message(message):
 def download_database(dbinfo):
     project_id = dbinfo["projectId"]
     device = dbinfo.get("device", "")
-    alert_notif_config = dbinfo.get("alertNotifConfig", {})
     file_type = dbinfo.get("fileType", "FASTQ")  # Add fileType
     nanocas_location = os.path.join(os.path.expanduser('~'), '.nanocas/' + project_id + '/')
 
@@ -170,8 +169,34 @@ def download_database(dbinfo):
         shutil.rmtree(nanocas_location)
         os.makedirs(nanocas_location)
 
+    gff_file_temp = dbinfo.get("gff_file")
+
+    gff_file_final = None
+    if gff_file_temp and os.path.exists(gff_file_temp):
+        gff_file_final = os.path.join(nanocas_location, 'gff_file.gff')
+        shutil.move(gff_file_temp, gff_file_final)
+        # Update dbinfo with the new GFF file path
+        dbinfo["gff_file"] = gff_file_final
+        logger.debug(f"Moved GFF file from {gff_file_temp} to {gff_file_final}")
+
+        # Remove the temp directory that held the gff file
+        temp_dir = os.path.dirname(gff_file_temp)
+        try:
+            if os.path.isdir(temp_dir) and not os.listdir(temp_dir):
+                os.rmdir(temp_dir)
+                logger.debug(f"Removed empty temp directory {temp_dir}")
+            elif os.path.isdir(temp_dir):
+                shutil.rmtree(temp_dir)
+                logger.debug(f"Removed temp directory {temp_dir} and its contents")
+        except Exception as e:
+            logger.warning(f"Failed to remove temp directory {temp_dir}: {e}")
+    else:
+        if gff_file_temp:
+            logger.warning(f"GFF file {gff_file_temp} does not exist; skipping move.")
+
     queries = dbinfo["queries"]
     dbinfo["fileType"] = file_type  # Ensure fileType is included
+    print(dbinfo)
     with open(nanocas_location + 'alertinfo.cfg', 'w+') as alert_config_file:
         alert_config_file.write(json.dumps(dbinfo))
 

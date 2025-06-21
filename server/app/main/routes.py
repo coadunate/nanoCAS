@@ -2,11 +2,12 @@ import ast
 import json
 import logging
 import os
-import random
-import string
+import gzip
+import tempfile
 import uuid
 import subprocess
 import glob
+import pysam
 
 from flask import session, render_template, request, abort, jsonify
 from . import main
@@ -15,7 +16,7 @@ from .utils import LinuxNotification
 logger = logging.getLogger('nanocas')
 
 NANOCAS_DIR = os.path.join(os.path.expanduser('~'), '.nanocas')
-CACHE_PATH = os.path.join(os.path.expanduser('~'), '.nanocas/.cache') # Add to CONFIG
+CACHE_PATH = os.path.join(os.path.expanduser('~'), '.nanocas/.cache')
 
 @main.route('/version', methods=['GET'])
 def version():
@@ -121,7 +122,7 @@ def delete_analyses():
         cache_fs.truncate()
 
     # delete the nanocas directory for the uid
-    uid_dir = os.path.join(os.path.expanduser('~'), '.nanocas/' + uid) # Add to CONFIG
+    uid_dir = os.path.join(os.path.expanduser('~'), '.nanocas/' + uid)
     if os.path.exists(uid_dir):
         subprocess.call(['rm', '-rf', uid_dir])
     
@@ -152,7 +153,6 @@ def get_analysis_info():
         if not found:
             return json.dumps({'status': 404, 'message': "Couldn't find the analysis data with UID: " + str(uid)})
         else:
-
             alert_cfg_file = os.path.join(nanocas_path, 'alertinfo.cfg')
             alert_cfg_obj = json.load(open(alert_cfg_file))
 
@@ -168,7 +168,7 @@ def get_analysis_info():
 def analysis():
     if (request.method == 'GET'):
 
-        nanocas_location = os.path.join(os.path.expanduser('~'), '.nanocas/') # Add to CONFIG
+        nanocas_location = os.path.join(os.path.expanduser('~'), '.nanocas/')
         minion = request.args.get('minion')
 
         session['nanocas_location'] = nanocas_location
@@ -219,7 +219,7 @@ def analysis():
 def validate_locations():
     if (request.method == 'POST'):
         minION_location = request.form['minION']
-        nanocas_location = os.path.join(os.path.expanduser('~'), '.nanocas/') # Add to CONFIG
+        nanocas_location = os.path.join(os.path.expanduser('~'), '.nanocas/')
 
         minION_output_exists = os.path.exists(minION_location)
         app_output_exists = os.path.exists(nanocas_location) 
@@ -294,7 +294,125 @@ def index_devices():
         return json.dumps(devices)
     # Explicitly return an empty list if not GET (should not happen)
     return json.dumps([])
-    
+
+@main.route('/upload_fasta', methods=['POST'])
+def upload_fasta():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+    temp_dir = tempfile.mkdtemp(dir=NANOCAS_DIR)
+    file_path = os.path.join(temp_dir, file.filename)
+    file.save(file_path)
+    logger.debug(f"Uploaded FASTA file to {file_path}")
+    return jsonify({'file_path': file_path})
+
+@main.route('/upload_gff', methods=['POST'])
+def upload_gff():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+    temp_dir = tempfile.mkdtemp(dir=NANOCAS_DIR)
+    file_path = os.path.join(temp_dir, file.filename)
+    file.save(file_path)
+    logger.debug(f"Uploaded GFF file to {file_path}")
+    return jsonify({'file_path': file_path})
+
+@main.route('/parse_fasta_headers', methods=['POST'])
+def parse_fasta_headers():
+    data = request.json
+    file_path = data.get('file_path')
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({'error': 'Invalid file path'}), 400
+    headers = []
+    try:
+        if file_path.endswith('.gz'):
+            with gzip.open(file_path, 'rt') as f:
+                for line in f:
+                    if line.startswith('>'):
+                        headers.append(line[1:].strip())
+        else:
+            with open(file_path, 'r') as f:
+                for line in f:
+                    if line.startswith('>'):
+                        headers.append(line[1:].strip())
+        logger.debug(f"Parsed {len(headers)} headers from {file_path}")
+        return jsonify(headers)
+    except Exception as e:
+        logger.error(f"Error parsing FASTA headers: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def parse_gff(gff_path, sequence_id):
+    regions = []
+    try:
+        with open(gff_path, 'r') as f:
+            for line in f:
+                if line.strip() and not line.startswith('#'):
+                    fields = line.strip().split('\t')
+                    if len(fields) >= 5 and fields[0] == sequence_id:
+                        start = int(fields[3])
+                        end = int(fields[4])
+                        attributes = fields[8] if len(fields) > 8 else ""
+                        region_id = None
+                        for attr in attributes.split(';'):
+                            if attr.startswith('ID='):
+                                region_id = attr[3:]
+                                break
+                        regions.append({'start': start, 'end': end, 'id': region_id})
+    except Exception as e:
+        logger.error(f"Error parsing GFF file {gff_path}: {e}")
+    return regions
+
+@main.route('/get_alignments', methods=['GET'])
+def get_alignments():
+    project_id = request.args.get('projectId')
+    reference = request.args.get('reference')
+    if not project_id or not reference:
+        return jsonify({'error': 'projectId and reference are required'}), 400
+    nanocas_path = os.path.join(NANOCAS_DIR, project_id)
+    stable_bam = os.path.join(nanocas_path, 'merged_stable.bam') 
+    stable_bam_index = stable_bam + '.bai'
+    if not os.path.exists(stable_bam):
+        return jsonify({'error': 'Stable BAM file not found'}), 404
+    try:
+
+        if not os.path.exists(stable_bam_index):
+            return jsonify({'error': 'BAM index file not found'}), 404
+
+        bam = pysam.AlignmentFile(stable_bam, "rb")
+        if reference not in bam.references:
+            return jsonify({'error': 'Reference not found in BAM file'}), 404
+        ref_length = bam.lengths[bam.references.index(reference)]
+        alignments = []
+        for alignment in bam.fetch(reference):
+            if not alignment.is_unmapped:
+                start = alignment.reference_start
+                end = alignment.reference_end
+                strand = '-' if alignment.is_reverse else '+'
+                alignments.append({'start': start, 'end': end, 'strand': strand})
+
+        # Load and parse GFF file if present
+        alert_cfg_file = os.path.join(nanocas_path, 'alertinfo.cfg')
+        regions = []
+        with open(alert_cfg_file, 'r') as f:
+            alert_cfg = json.load(f)
+            gff_file = alert_cfg.get('gff_file')
+            if gff_file and os.path.exists(gff_file):
+                regions = parse_gff(gff_file, reference)
+                for region in regions:
+                    count = sum(1 for aln in alignments if aln['start'] < region['end'] and aln['end'] > region['start'])
+                    region['read_count'] = count
+
+        bam.close()
+        return jsonify({'ref_length': ref_length, 'alignments': alignments, 'regions': regions})
+    except Exception as e:
+        logger.error(f"Error getting alignments: {e}")
+        print(e)
+        return jsonify({'error': 'Error processing BAM file'}), 500
+
 def validate_cache(cache_path=CACHE_PATH):
     if not os.path.isfile(cache_path):
         if not os.path.isdir(NANOCAS_DIR):
