@@ -56,7 +56,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
     const [uid, setUID] = useState("");
 
     // Additional databases
-    const add_databases = databaseSetupInput.queries.queries;
+    const add_databases = databaseSetupInput.queries;
 
     // Function to scroll to the top smoothly
     const scrollToTop = () => {
@@ -88,6 +88,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                     queries: add_databases,
                     projectId: newUID,
                     device: databaseSetupInput.device.device,
+                    gff_file: databaseSetupInput.gff_file,
                     alertNotifConfig: alertNotifSetupInput
                 };
                 console.log("Database Info:", dbInfo);
@@ -136,6 +137,12 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                     ))
                 ) : (
                     <tr><td colSpan={3}>No additional sequences provided.</td></tr>
+                )}
+                {databaseSetupInput.gff_file && (
+                    <tr>
+                        <th>GFF File</th>
+                        <td colSpan={2}>{databaseSetupInput.gff_file}</td>
+                    </tr>
                 )}
                 </tbody>
                 <thead className="thead-light">

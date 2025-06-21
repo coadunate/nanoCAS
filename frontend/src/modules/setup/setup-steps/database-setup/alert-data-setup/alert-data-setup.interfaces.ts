@@ -1,5 +1,6 @@
 type IAlertData = {
-    queries: IQuery[]
+    queries: IQuery[],
+    gff_file?: string
 }
 
 type IQuery = {
@@ -8,7 +9,7 @@ type IQuery = {
     threshold: string,
     current_fold_change: number,
     alert: boolean,
-   selected_headers?: string[]
+    header?: string
 }
 
 export type {

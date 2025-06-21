@@ -16,21 +16,30 @@ from .LinuxNotification import LinuxNotification
 from .email import send_email
 from .sms import send_sms
 
+# Set up logging
 logger = logging.getLogger('nanocas')
 
 class FileHandler(FileSystemEventHandler):
     def __init__(self, app_loc: str):
+        """
+        Initialize the FileHandler with the application location.
+        Sets up paths for merged BAM files, coverage data, and processed files.
+        """
         self.app_loc = app_loc
         self.num_files_classified = 0
         self.merged_bam = os.path.join(self.app_loc, 'merged.bam')
+        self.stable_bam = os.path.join(self.app_loc, 'merged_stable.bam')  # Stable copy for reading
         self.coverage_file = os.path.join(self.app_loc, 'coverage.csv')
         self.processed_files_path = os.path.join(self.app_loc, 'processed_files.txt')
         self.processed_files = set()
-        self.processed_files_lock = Lock()  # Add lock for thread safety
-        # Load previously processed files
+        self.processed_files_lock = Lock()  # Lock for thread-safe access to processed files
+        
+        # Load previously processed files if the file exists
         if os.path.exists(self.processed_files_path):
             with open(self.processed_files_path, 'r') as f:
                 self.processed_files = set(f.read().splitlines())
+        
+        # Load configuration from alertinfo.cfg
         with open(os.path.join(self.app_loc, 'alertinfo.cfg'), 'r') as f:
             self.config = json.load(f)
         self.file_type = self.config.get('fileType', 'FASTQ')
@@ -40,9 +49,11 @@ class FileHandler(FileSystemEventHandler):
                 self.header_to_query[header] = query
 
     def on_moved(self, event):
+        """Handle file move events by processing the new file path."""
         self.on_any_event(event)
 
     def on_any_event(self, event):
+        """Handle any file system event (e.g., new file created or moved)."""
         src_path = event.src_path
         with self.processed_files_lock:
             if src_path in self.processed_files:
@@ -68,7 +79,7 @@ class FileHandler(FileSystemEventHandler):
                 f.write(src_path + '\n')
 
     def wait_for_file_stability(self, file_path, timeout=60, interval=1):
-        """Ensure file is fully written by checking size stability."""
+        """Ensure the file is fully written by checking if its size stabilizes."""
         start_time = time.time()
         while time.time() - start_time < timeout:
             if not os.path.exists(file_path):
@@ -90,7 +101,7 @@ class FileHandler(FileSystemEventHandler):
         return False
 
     def is_bam_valid(self, bam_file):
-        """Check if a BAM file is valid."""
+        """Check if a BAM file is valid using pysam quickcheck."""
         try:
             pysam.quickcheck(bam_file)
             return True
@@ -99,7 +110,9 @@ class FileHandler(FileSystemEventHandler):
             return False
 
     def process_fastq_file(self, src_path: str, timestamp: str = None):
-        """Process FASTQ file by aligning to database and calculating coverage."""
+        """
+        Process a FASTQ file by aligning it to the database and merging the results.
+        """
         index_file = self.get_index_file()
         if not index_file:
             return
@@ -128,7 +141,7 @@ class FileHandler(FileSystemEventHandler):
             os.remove(sorted_bam_output)
 
     def process_bam_file(self, bam_path: str, timestamp: str = None):
-        """Process BAM file by merging and calculating coverage."""
+        """Process a BAM file by merging it and calculating coverage."""
         if not self.is_bam_valid(bam_path):
             logger.error(f"Skipping invalid BAM file: {bam_path}")
             return
@@ -136,7 +149,7 @@ class FileHandler(FileSystemEventHandler):
         self.calculate_and_record_coverage(timestamp)
 
     def get_index_file(self) -> str | None:
-        """Retrieve the database index file."""
+        """Retrieve the database index file (.mmi)."""
         files = glob.glob(os.path.join(self.app_loc, 'database', '*.mmi'))
         if not files:
             logger.error("No MMI files found in database location")
@@ -144,59 +157,92 @@ class FileHandler(FileSystemEventHandler):
         return files[0]
 
     def merge_bam(self, new_bam: str):
-        """Merge new BAM with existing merged BAM, ensuring sorted output."""
+        """Merge a new BAM file with the existing merged BAM, sort it, index it, and update both merged and stable copies."""
+        temp_merged = os.path.join(self.app_loc, 'temp_merged.bam')
+        sorted_merged = os.path.join(self.app_loc, 'merged_sorted.bam')
+        sorted_merged_index = sorted_merged + '.bai'
+
+        # If no merged BAM exists yet, start with the new BAM
         if not os.path.exists(self.merged_bam):
             shutil.copy(new_bam, self.merged_bam)
+            shutil.copy(new_bam, temp_merged)
         else:
-            temp_merged = os.path.join(self.app_loc, 'temp_merged.bam')
+            # Merge the existing BAM with the new one
             try:
                 subprocess.run(['samtools', 'merge', temp_merged, self.merged_bam, new_bam], check=True)
-                shutil.move(temp_merged, self.merged_bam)
             except subprocess.CalledProcessError as e:
                 logger.error(f"Error merging BAM files: {e}")
                 return
-        # Sort and index the merged BAM
+
+        # Sort the merged BAM file
         try:
-            sorted_merged = os.path.join(self.app_loc, 'merged_sorted.bam')
-            subprocess.run(['samtools', 'sort', self.merged_bam, '-o', sorted_merged], check=True)
-            shutil.move(sorted_merged, self.merged_bam)
-            subprocess.run(['samtools', 'index', self.merged_bam], check=True)
+            subprocess.run(['samtools', 'sort', temp_merged, '-o', sorted_merged], check=True)
         except subprocess.CalledProcessError as e:
-            logger.error(f"Error sorting/indexing merged BAM: {e}")
+            logger.error(f"Error sorting merged BAM: {e}")
+            if os.path.exists(temp_merged):
+                os.remove(temp_merged)
+            return
+
+        # Create an index for the sorted BAM file
+        try:
+            subprocess.run(['samtools', 'index', sorted_merged], check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error indexing sorted BAM: {e}")
+            if os.path.exists(temp_merged):
+                os.remove(temp_merged)
+            if os.path.exists(sorted_merged):
+                os.remove(sorted_merged)
+            return
+
+        # Update both merged.bam and stable_bam atomically
+        try:
+            # First, update merged.bam as the cumulative file
+            shutil.move(sorted_merged, self.merged_bam)
+            # Then, copy to stable_bam for coverage calculation
+            shutil.copy(self.merged_bam, self.stable_bam)
+            if os.path.exists(sorted_merged_index):
+                shutil.move(sorted_merged_index, self.merged_bam + '.bai')
+                shutil.copy(self.merged_bam + '.bai', self.stable_bam + '.bai')
+            else:
+                logger.warning(f"Index file {sorted_merged_index} not found after indexing.")
+                # Regenerate indices for both files
+                subprocess.run(['samtools', 'index', self.merged_bam], check=True)
+                subprocess.run(['samtools', 'index', self.stable_bam], check=True)
+        except Exception as e:
+            logger.error(f"Error updating BAM files or indices: {e}")
+            return
+
+        # Clean up temporary files
+        if os.path.exists(temp_merged):
+            os.remove(temp_merged)
 
     def calculate_and_record_coverage(self, timestamp: str = None):
-        """Calculate and record depth coverage (average depth), breadth coverage, and read count per reference."""
+        """Calculate and record coverage using the stable BAM file."""
         if timestamp is None:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         try:
-            bam = pysam.AlignmentFile(self.merged_bam, "rb", check_sq=False)
+            bam = pysam.AlignmentFile(self.stable_bam, "rb", check_sq=False)
             if not bam.has_index():
-                logger.error(f"Index missing for {self.merged_bam}")
+                logger.error(f"Index missing for {self.stable_bam}")
                 return
             coverage_data = {}
             for ref in bam.references:
                 ref_length = bam.lengths[bam.references.index(ref)]
-                # Get coverage depth across all positions for this reference
                 coverage = bam.count_coverage(ref)
-                # Sum depths across all bases (A, C, G, T) at each position using NumPy
                 total_depth_per_position = np.sum([np.array(cov) for cov in coverage], axis=0)
                 total_depth = np.sum(total_depth_per_position)
-                # Depth coverage is average depth across the reference
                 depth_coverage = total_depth / ref_length if ref_length > 0 else 0
-                # Breadth coverage: percentage of positions with at least one read
                 covered_positions = np.sum(total_depth_per_position >= 1)
                 breadth_coverage = (covered_positions / ref_length) * 100 if ref_length > 0 else 0
-                read_count = bam.count(ref)  # Count reads mapping to this reference
+                read_count = bam.count(ref)
                 coverage_data[ref] = {
                     "depth": depth_coverage,
                     "breadth": breadth_coverage,
                     "read_count": read_count
                 }
                 print(f"Reference: {ref}, Depth Coverage: {depth_coverage:.2f}x, Breadth Coverage: {breadth_coverage:.2f}%, Read Count: {read_count}")
-                # Update alert check to use depth coverage if needed
                 self.check_depth_coverage_alert(ref, depth_coverage)
 
-            # add unmapped reads
             unmapped_count = bam.unmapped
             coverage_data['unmapped'] = {
                 "depth": 0.0,
@@ -211,7 +257,6 @@ class FileHandler(FileSystemEventHandler):
                     f.write(f"{timestamp},{ref},{cov['depth']},{cov['breadth']},{cov['read_count']}\n")
             logger.debug(f"Coverage and read counts recorded at {timestamp}")
 
-            # Emit coverage update via Socket.IO
             socketio.emit('coverage_update', {
                 'projectId': self.config.get('projectId', ''),
                 'timestamp': timestamp,
@@ -221,6 +266,7 @@ class FileHandler(FileSystemEventHandler):
             logger.error(f"Error calculating coverage: {e}")
 
     def check_depth_coverage_alert(self, ref: str, depth_coverage: float):
+        """Check if depth coverage exceeds the threshold and trigger alerts if necessary."""
         query = self.header_to_query.get(ref)
         if query:
             threshold = float(query.get("threshold", 0))
@@ -256,7 +302,6 @@ class FileHandler(FileSystemEventHandler):
         files = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(extensions)]
         with self.processed_files_lock:
             files = [f for f in files if f not in self.processed_files]
-        # Sort by modification time
         files.sort(key=lambda x: os.path.getctime(x))
         return files
 

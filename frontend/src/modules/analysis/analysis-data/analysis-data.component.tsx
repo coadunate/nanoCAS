@@ -11,6 +11,25 @@ const API_ENDPOINT = process.env.REACT_APP_API_ENDPOINT || 'http://localhost:500
 
 const POLLING_INTERVAL_MS = 10000;
 
+interface Alignment {
+    start: number;
+    end: number;
+    strand: string;
+}
+
+interface Region {
+    start: number;
+    end: number;
+    id: string;
+    read_count: number;
+}
+
+interface AlignmentData {
+    ref_length: number;
+    alignments: Alignment[];
+    regions: Region[];
+}
+
 const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) => {
     const [analysisData, setAnalysisData] = useState(data);
     const [coverageData, setCoverageData] = useState<any[]>([]);
@@ -21,7 +40,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const [metric, setMetric] = useState<'depth' | 'breadth'>('depth');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [selectedReference, setSelectedReference] = useState<string | null>(null);
-    const [alignmentData, setAlignmentData] = useState<{ref_length: number, alignments: any[]} | null>(null);
+    const [alignmentData, setAlignmentData] = useState<AlignmentData | null>(null);
     type TimeUnit = 'seconds' | 'minutes' | 'hours' | 'days';
     const [timeUnit, setTimeUnit] = useState<TimeUnit>('seconds');
     const [isDatabaseReady, setIsDatabaseReady] = useState(false);
@@ -316,7 +335,12 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
                 </div>
                 <div className="nano-card-body">
                     {selectedReference && alignmentData ? (
-                        <AlignmentViewer refLength={alignmentData.ref_length} alignments={alignmentData.alignments} />
+                        <AlignmentViewer
+                            refId={selectedReference}
+                            refLength={alignmentData.ref_length}
+                            alignments={alignmentData.alignments}
+                            regions={alignmentData.regions}
+                        />
                     ) : (
                         <div className="nano-empty-state">
                             <p>Select a reference to view sequence coverage.</p>

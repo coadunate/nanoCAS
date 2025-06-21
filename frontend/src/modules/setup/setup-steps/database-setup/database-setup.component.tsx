@@ -23,7 +23,12 @@ const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanc
             alert("Please provide a valid threshold for all queries.");
             return;
         }
-        update({ queries: alertData, locations: locationConfig, device: alertConfig });
+        update({
+            queries: alertData.queries,
+            gff_file: alertData.gff_file,
+            locations: locationConfig,
+            device: alertConfig
+        });
         advanceStep();
     };
 

@@ -11,6 +11,7 @@ type IKeys = "name" | "file" | "threshold" | "alert";
 
 const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> = ({ updateConfig }) => {
     const [queries, setQueries] = useState<IQuery[]>([]);
+    const [gffFilePath, setGffFilePath] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
 
     const handleAddQuery = (newQuery: IQuery) => {
@@ -22,10 +23,25 @@ const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> =
         setQueries((prev) => prev.filter((_, i) => i !== index));
     };
 
+    const handleGffFileChange = async (evt: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = evt.target.files?.[0];
+        if (selectedFile) {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            try {
+                const uploadRes = await axios.post(`${API_ENDPOINT}/upload_gff`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                setGffFilePath(uploadRes.data.file_path);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    };
+
     useEffect(() => {
-        console.log("Updating queries in AlertDataSetup:", queries);
-        updateConfig({ queries });
-    }, [queries, updateConfig]);
+        updateConfig({ queries, gff_file: gffFilePath || undefined });
+    }, [queries, gffFilePath, updateConfig]);
 
     return (
         <div className="container">
@@ -68,6 +84,14 @@ const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> =
                     </tbody>
                 </Table>
             )}
+            <Form.Group className="mb-3">
+                <Form.Label>Optional: Upload GFF File for Regions of Interest</Form.Label>
+                <Form.Control
+                    type="file"
+                    accept=".gff,.txt"
+                    onChange={handleGffFileChange}
+                />
+            </Form.Group>
             <div className="text-center">
                 <hr />
                 <Button

@@ -308,6 +308,19 @@ def upload_fasta():
     logger.debug(f"Uploaded FASTA file to {file_path}")
     return jsonify({'file_path': file_path})
 
+@main.route('/upload_gff', methods=['POST'])
+def upload_gff():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+    temp_dir = tempfile.mkdtemp(dir=NANOCAS_DIR)
+    file_path = os.path.join(temp_dir, file.filename)
+    file.save(file_path)
+    logger.debug(f"Uploaded GFF file to {file_path}")
+    return jsonify({'file_path': file_path})
+
 @main.route('/parse_fasta_headers', methods=['POST'])
 def parse_fasta_headers():
     data = request.json
@@ -332,6 +345,27 @@ def parse_fasta_headers():
         logger.error(f"Error parsing FASTA headers: {e}")
         return jsonify({'error': str(e)}), 500
 
+def parse_gff(gff_path, sequence_id):
+    regions = []
+    try:
+        with open(gff_path, 'r') as f:
+            for line in f:
+                if line.strip() and not line.startswith('#'):
+                    fields = line.strip().split('\t')
+                    if len(fields) >= 5 and fields[0] == sequence_id:
+                        start = int(fields[3])
+                        end = int(fields[4])
+                        attributes = fields[8] if len(fields) > 8 else ""
+                        region_id = None
+                        for attr in attributes.split(';'):
+                            if attr.startswith('ID='):
+                                region_id = attr[3:]
+                                break
+                        regions.append({'start': start, 'end': end, 'id': region_id})
+    except Exception as e:
+        logger.error(f"Error parsing GFF file {gff_path}: {e}")
+    return regions
+
 @main.route('/get_alignments', methods=['GET'])
 def get_alignments():
     project_id = request.args.get('projectId')
@@ -339,11 +373,16 @@ def get_alignments():
     if not project_id or not reference:
         return jsonify({'error': 'projectId and reference are required'}), 400
     nanocas_path = os.path.join(NANOCAS_DIR, project_id)
-    merged_bam = os.path.join(nanocas_path, 'merged.bam')
-    if not os.path.exists(merged_bam):
-        return jsonify({'error': 'Merged BAM file not found'}), 404
+    stable_bam = os.path.join(nanocas_path, 'merged_stable.bam') 
+    stable_bam_index = stable_bam + '.bai'
+    if not os.path.exists(stable_bam):
+        return jsonify({'error': 'Stable BAM file not found'}), 404
     try:
-        bam = pysam.AlignmentFile(merged_bam, "rb")
+
+        if not os.path.exists(stable_bam_index):
+            return jsonify({'error': 'BAM index file not found'}), 404
+
+        bam = pysam.AlignmentFile(stable_bam, "rb")
         if reference not in bam.references:
             return jsonify({'error': 'Reference not found in BAM file'}), 404
         ref_length = bam.lengths[bam.references.index(reference)]
@@ -354,10 +393,24 @@ def get_alignments():
                 end = alignment.reference_end
                 strand = '-' if alignment.is_reverse else '+'
                 alignments.append({'start': start, 'end': end, 'strand': strand})
+
+        # Load and parse GFF file if present
+        alert_cfg_file = os.path.join(nanocas_path, 'alertinfo.cfg')
+        regions = []
+        with open(alert_cfg_file, 'r') as f:
+            alert_cfg = json.load(f)
+            gff_file = alert_cfg.get('gff_file')
+            if gff_file and os.path.exists(gff_file):
+                regions = parse_gff(gff_file, reference)
+                for region in regions:
+                    count = sum(1 for aln in alignments if aln['start'] < region['end'] and aln['end'] > region['start'])
+                    region['read_count'] = count
+
         bam.close()
-        return jsonify({'ref_length': ref_length, 'alignments': alignments})
+        return jsonify({'ref_length': ref_length, 'alignments': alignments, 'regions': regions})
     except Exception as e:
         logger.error(f"Error getting alignments: {e}")
+        print(e)
         return jsonify({'error': 'Error processing BAM file'}), 500
 
 def validate_cache(cache_path=CACHE_PATH):

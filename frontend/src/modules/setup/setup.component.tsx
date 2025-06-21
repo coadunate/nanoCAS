@@ -15,12 +15,12 @@ import {IAlertNotifSetupInput} from "./setup-steps/alert-notif-setup/alert-notif
 
 const qrs: IAlertData = {
     queries: [
-        {name: "", file: "", threshold: "", current_fold_change: 0, alert: false, selected_headers: []},
+        {name: "", file: "", threshold: "", current_fold_change: 0, alert: false},
     ]
 };
 
 const initial_db_setup_input: IDatabseSetupInput = {
-    queries  : qrs,
+    queries  : qrs.queries,
     locations: {nanoporeLocation: ""},
     device: {device: ""}
 };
