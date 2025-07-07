@@ -115,24 +115,64 @@ const AlignmentViewer: React.FC<AlignmentViewerProps> = ({ refId, refLength, ali
                 {showRegions && regions.map((region, index) => {
                     const x = sequenceXStart + region.start * scale;
                     const width = (region.end - region.start) * scale;
+                    function formatBp(bp: number): string {
+                        if (bp >= 1_000_000) {
+                            return (bp / 1_000_000).toFixed(2).replace(/\.00$/, '') + 'Mb';
+                        } else if (bp >= 1_000) {
+                            return (bp / 1_000).toFixed(2).replace(/\.00$/, '') + 'kb';
+                        } else {
+                            return bp + 'bp';
+                        }
+                    }
                     return (
                         <OverlayTrigger
                             placement="top"
-                            overlay={<Tooltip id="region-tooltip">{region.id}</Tooltip>}
+                            overlay={
+                                <Tooltip id="region-tooltip">
+                                    {region.id} [{formatBp(region.start)} - {formatBp(region.end)}]
+                                </Tooltip>
+                            }
+                        >
+                            <g
+                                key={index}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(`${region.id}:${region.start}-${region.end}`);
+                                    const toast = document.createElement('div');
+                                    toast.textContent = 'Location copied to clipboard!';
+                                    Object.assign(toast.style, {
+                                        position: 'fixed',
+                                        bottom: '32px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%)',
+                                        background: '#222',
+                                        color: '#fff',
+                                        padding: '10px 24px',
+                                        borderRadius: '6px',
+                                        fontSize: '15px',
+                                        zIndex: 9999,
+                                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                        opacity: '0',
+                                        transition: 'opacity 0.2s'
+                                    });
+                                    document.body.appendChild(toast);
+                                    setTimeout(() => { toast.style.opacity = '1'; }, 10);
+                                    setTimeout(() => {
+                                        toast.style.opacity = '0';
+                                        setTimeout(() => document.body.removeChild(toast), 300);
+                                    }, 3000);
+                                }}
                             >
-                                <g key={index}>
-                                    <rect
-                                        x={x}
-                                        y={topMargin}
-                                        width={width}
-                                        height={queryBarHeight}
-                                        fill="rgba(0, 255, 0, 0.3)"
-                                        stroke="#000"
-                                        strokeWidth={1}
-                                        data-tip={`Gene ID: ${region.id}<br>Start: ${region.start}<br>End: ${region.end}<br>Read Count: ${region.read_count}`}
-                                        data-for="region-tooltip"
-                                    />
-                                </g>
+                                <rect
+                                    x={x}
+                                    y={topMargin}
+                                    width={width}
+                                    height={queryBarHeight}
+                                    fill="rgba(0, 255, 0, 0.3)"
+                                    stroke="#000"
+                                    strokeWidth={1}
+                                />
+                            </g>
                         </OverlayTrigger>
                     );
                 })}

@@ -17,7 +17,7 @@ const DatabaseSetupComponent: FunctionComponent<IDatabaseSetupProps> = ({ advanc
 
     const updateDatabaseSetupConfiguration = () => {
         const invalidQueries = alertData.queries.filter(
-            q => !q.threshold || q.threshold.trim() === "" || isNaN(parseFloat(q.threshold))
+            q => !q.depth_threshold || q.depth_threshold.trim() === "" || isNaN(parseFloat(q.depth_threshold))
         );
         if (invalidQueries.length > 0) {
             alert("Please provide a valid threshold for all queries.");

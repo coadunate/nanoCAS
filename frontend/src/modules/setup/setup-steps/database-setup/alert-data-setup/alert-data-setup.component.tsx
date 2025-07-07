@@ -67,8 +67,8 @@ const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> =
                             <tr key={i}>
                                 <td>{q.name}</td>
                                 <td>{q.file}</td>
-                                <td>{q.threshold}</td>
-                                <td>{q.alert ? "Yes" : "No"}</td>
+                                <td>{q.depth_threshold}</td>
+                                <td>{q.alert_on_depth ? "Yes" : "No"}</td>
                                 <td>
                                     <Button
                                         variant="danger"
@@ -191,7 +191,8 @@ const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, on
                 file: filePath,
                 threshold,
                 current_fold_change: 0,
-                alert,
+                alert_on_depth: alert,
+                alert_on_breadth: false,
                 header
             }));
             newQueries.forEach(query => onAdd(query));

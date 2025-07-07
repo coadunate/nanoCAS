@@ -6,9 +6,12 @@ type IAlertData = {
 type IQuery = {
     name: string,
     file: string,
-    threshold: string,
-    current_fold_change: number,
-    alert: boolean,
+    alert_on_depth: boolean,
+    depth_threshold?: string,
+    alert_on_breadth: boolean,
+    breadth_threshold?: string,
+    currrent_breadth?: number,
+    current_deth?: number,
     header?: string
 }
 
