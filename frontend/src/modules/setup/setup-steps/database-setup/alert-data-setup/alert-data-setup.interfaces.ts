@@ -12,7 +12,8 @@ type IQuery = {
     breadth_threshold?: string,
     currrent_breadth?: number,
     current_deth?: number,
-    header?: string
+    header?: string,
+    headers?: string[]
 }
 
 export type {

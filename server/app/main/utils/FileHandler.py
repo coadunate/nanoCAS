@@ -33,6 +33,10 @@ class FileHandler(FileSystemEventHandler):
         self.processed_files_path = os.path.join(self.app_loc, 'processed_files.txt')
         self.processed_files = set()
         self.processed_files_lock = Lock()  # Lock for thread-safe access to processed files
+        # Track sent alerts to avoid duplicate notifications
+        self.sent_alerts_path = os.path.join(self.app_loc, 'sent_alerts.json')
+        self.sent_alerts_lock = Lock()
+        self.sent_alerts = self._load_sent_alerts()
         
         # Load previously processed files if the file exists
         if os.path.exists(self.processed_files_path):
@@ -45,8 +49,13 @@ class FileHandler(FileSystemEventHandler):
         self.file_type = self.config.get('fileType', 'FASTQ')
         self.header_to_query = {}
         for query in self.config.get("queries", []):
-            for header in query.get("headers", []):
-                self.header_to_query[header] = query
+            headers = []
+            if "headers" in query and query["headers"]:
+                headers.extend(query["headers"])
+            if "header" in query and query["header"]:
+                headers.append(query["header"])
+            for h in headers:
+                self.header_to_query[h] = query
 
         # Load regions data
         self.regions_json_path = os.path.join(self.app_loc, 'regions.json')
@@ -54,6 +63,36 @@ class FileHandler(FileSystemEventHandler):
         if os.path.exists(self.regions_json_path):
             with open(self.regions_json_path, 'r') as f:
                 self.regions_data = json.load(f)
+
+    def _load_sent_alerts(self):
+        """Load previously sent alerts from JSON file."""
+        if os.path.exists(self.sent_alerts_path):
+            try:
+                with open(self.sent_alerts_path, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                logger.warning("Could not load sent alerts file, starting fresh")
+        return {}
+
+    def _save_sent_alerts(self):
+        """Save sent alerts to JSON file."""
+        with self.sent_alerts_lock:
+            with open(self.sent_alerts_path, 'w') as f:
+                json.dump(self.sent_alerts, f, indent=2)
+
+    def _check_if_alert_sent(self, alert_key: str) -> bool:
+        """Check if an alert has already been sent for this key."""
+        with self.sent_alerts_lock:
+            return alert_key in self.sent_alerts
+
+    def _mark_alert_as_sent(self, alert_key: str, alert_info: dict):
+        """Mark an alert as sent with timestamp and details."""
+        with self.sent_alerts_lock:
+            self.sent_alerts[alert_key] = {
+                'timestamp': datetime.datetime.now().isoformat(),
+                'info': alert_info
+            }
+            self._save_sent_alerts()
 
     def on_moved(self, event):
         """Handle file move events by processing the new file path."""
@@ -295,20 +334,43 @@ class FileHandler(FileSystemEventHandler):
 
     def check_coverage_alerts(self, ref: str, depth_coverage: float, breadth_coverage: float):
         """Check if depth coverage exceeds the threshold and trigger alerts if necessary."""
+        logger.debug(f"Checking alerts for {ref}: Depth {depth_coverage}, Breadth {breadth_coverage}")
         query = self.header_to_query.get(ref)
+        logger.debug(f"header_to_query keys: {list(self.header_to_query.keys())}")
+        logger.debug(query)
         if query:
             if query.get("alert_on_depth", False):
                 depth_threshold = float(query.get("depth_threshold", 0))
                 if depth_coverage >= depth_threshold:
-                    alert_str = f"Alert: {query['name']} - {ref} depth coverage reached {depth_coverage:.2f}x (threshold: {depth_threshold}x)"
-                    logger.critical(alert_str)
-                    self._send_notifications(alert_str)
+                    alert_key = f"{ref}_depth"
+                    if not self._check_if_alert_sent(alert_key):
+                        alert_str = f"Alert: {query['name']} - {ref} depth coverage reached {depth_coverage:.2f}x (threshold: {depth_threshold}x)"
+                        logger.critical(alert_str)
+                        self._send_notifications(alert_str)
+                        self._mark_alert_as_sent(alert_key, {
+                            'type': 'depth',
+                            'reference': ref,
+                            'value': depth_coverage,
+                            'threshold': depth_threshold
+                        })
+                    else:
+                        logger.debug(f"Depth alert for {alert_key} already sent, skipping")
             if query.get("alert_on_breadth", False):
                 breadth_threshold = float(query.get("breadth_threshold", 0))
                 if breadth_coverage >= breadth_threshold:
-                    alert_str = f"Alert: {query['name']} - {ref} breadth coverage reached {breadth_coverage:.2f}% (threshold: {breadth_threshold}%)"
-                    logger.critical(alert_str)
-                    self._send_notifications(alert_str)
+                    alert_key = f"{ref}_breadth"
+                    if not self._check_if_alert_sent(alert_key):
+                        alert_str = f"Alert: {query['name']} - {ref} breadth coverage reached {breadth_coverage:.2f}% (threshold: {breadth_threshold}%)"
+                        logger.critical(alert_str)
+                        self._send_notifications(alert_str)
+                        self._mark_alert_as_sent(alert_key, {
+                            'type': 'breadth',
+                            'reference': ref,
+                            'value': breadth_coverage,
+                            'threshold': breadth_threshold
+                        })
+                    else:
+                        logger.debug(f"Breadth alert for {alert_key} already sent, skipping")
             
 
     def _send_notifications(self, alert_str: str):

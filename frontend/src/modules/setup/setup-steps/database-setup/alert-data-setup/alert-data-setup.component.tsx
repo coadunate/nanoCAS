@@ -63,24 +63,27 @@ const AlertDataSetup: FunctionComponent<IDatabaseSetupConstituent<IAlertData>> =
                         </tr>
                     </thead>
                     <tbody>
-                        {queries.map((q, i) => (
-                            <tr key={i}>
-                                <td>{q.name}</td>
-                                <td>{q.file}</td>
-                                <td>{q.depth_threshold}</td>
-                                <td>{q.alert_on_depth ? "Yes" : "No"}</td>
-                                <td>
-                                    <Button
-                                        variant="danger"
-                                        size="sm"
-                                        onClick={() => handleRemoveQuery(i)}
-                                        aria-label="Remove sequence"
-                                    >
-                                        <i className="fa fa-trash-alt" />
-                                    </Button>
-                                </td>
-                            </tr>
-                        ))}
+                        {queries.map((q, i) => {
+                            console.log('Rendering query:', q, 'at index:', i);
+                            return (
+                                <tr key={i}>
+                                    <td>{q.name}</td>
+                                    <td>{q.file}</td>
+                                    <td>{q.depth_threshold}</td>
+                                    <td>{q.alert_on_depth ? "Yes" : "No"}</td>
+                                    <td>
+                                        <Button
+                                            variant="danger"
+                                            size="sm"
+                                            onClick={() => handleRemoveQuery(i)}
+                                            aria-label="Remove sequence"
+                                        >
+                                            <i className="fa fa-trash-alt" />
+                                        </Button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </Table>
             )}
@@ -189,7 +192,7 @@ const AddAlertModal: FunctionComponent<AddAlertModalProps> = ({ show, onHide, on
             const newQueries = headersToUse.map(header => ({
                 name: header,
                 file: filePath,
-                threshold,
+                depth_threshold: threshold,
                 current_fold_change: 0,
                 alert_on_depth: alert,
                 alert_on_breadth: false,
