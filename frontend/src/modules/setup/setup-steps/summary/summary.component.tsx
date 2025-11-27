@@ -132,7 +132,7 @@ const SummaryComponent: FunctionComponent<ISummaryComponentProps> = ({ databaseS
                         <tr key={idx}>
                             <th>{idx === 0 ? "Additional Sequences" : ""}</th>
                             <td>Name: {query.name}</td>
-                            <td>Threshold: {query.threshold}%</td>
+                            <td>Threshold: {query.depth_threshold}%</td>
                         </tr>
                     ))
                 ) : (

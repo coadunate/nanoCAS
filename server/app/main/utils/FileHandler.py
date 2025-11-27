@@ -33,6 +33,10 @@ class FileHandler(FileSystemEventHandler):
         self.processed_files_path = os.path.join(self.app_loc, 'processed_files.txt')
         self.processed_files = set()
         self.processed_files_lock = Lock()  # Lock for thread-safe access to processed files
+        # Track sent alerts to avoid duplicate notifications
+        self.sent_alerts_path = os.path.join(self.app_loc, 'sent_alerts.json')
+        self.sent_alerts_lock = Lock()
+        self.sent_alerts = self._load_sent_alerts()
         
         # Load previously processed files if the file exists
         if os.path.exists(self.processed_files_path):
@@ -45,8 +49,50 @@ class FileHandler(FileSystemEventHandler):
         self.file_type = self.config.get('fileType', 'FASTQ')
         self.header_to_query = {}
         for query in self.config.get("queries", []):
-            for header in query.get("headers", []):
-                self.header_to_query[header] = query
+            headers = []
+            if "headers" in query and query["headers"]:
+                headers.extend(query["headers"])
+            if "header" in query and query["header"]:
+                headers.append(query["header"])
+            for h in headers:
+                self.header_to_query[h] = query
+
+        # Load regions data
+        self.regions_json_path = os.path.join(self.app_loc, 'regions.json')
+        self.regions_data = {}
+        if os.path.exists(self.regions_json_path):
+            with open(self.regions_json_path, 'r') as f:
+                self.regions_data = json.load(f)
+
+    def _load_sent_alerts(self):
+        """Load previously sent alerts from JSON file."""
+        if os.path.exists(self.sent_alerts_path):
+            try:
+                with open(self.sent_alerts_path, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError):
+                logger.warning("Could not load sent alerts file, starting fresh")
+        return {}
+
+    def _save_sent_alerts(self):
+        """Save sent alerts to JSON file."""
+        with self.sent_alerts_lock:
+            with open(self.sent_alerts_path, 'w') as f:
+                json.dump(self.sent_alerts, f, indent=2)
+
+    def _check_if_alert_sent(self, alert_key: str) -> bool:
+        """Check if an alert has already been sent for this key."""
+        with self.sent_alerts_lock:
+            return alert_key in self.sent_alerts
+
+    def _mark_alert_as_sent(self, alert_key: str, alert_info: dict):
+        """Mark an alert as sent with timestamp and details."""
+        with self.sent_alerts_lock:
+            self.sent_alerts[alert_key] = {
+                'timestamp': datetime.datetime.now().isoformat(),
+                'info': alert_info
+            }
+            self._save_sent_alerts()
 
     def on_moved(self, event):
         """Handle file move events by processing the new file path."""
@@ -241,7 +287,28 @@ class FileHandler(FileSystemEventHandler):
                     "read_count": read_count
                 }
                 print(f"Reference: {ref}, Depth Coverage: {depth_coverage:.2f}x, Breadth Coverage: {breadth_coverage:.2f}%, Read Count: {read_count}")
-                self.check_depth_coverage_alert(ref, depth_coverage)
+                self.check_coverage_alerts(ref, depth_coverage, breadth_coverage)
+
+                # Region-specific coverage and alerts
+                if ref in self.regions_data:
+                    for region in self.regions_data[ref]:
+                        if region.get('alert_enabled', False):
+                            start = region['start']
+                            end = region['end']
+                            region_coverage = bam.count_coverage(ref, start - 1, end)
+                            region_depth_per_position = np.sum([np.array(cov) for cov in region_coverage], axis=0)
+                            region_total_depth = np.sum(region_depth_per_position)
+                            region_length = end - start + 1
+                            region_depth_coverage = region_total_depth / region_length if region_length > 0 else 0
+                            region_covered_positions = np.sum(region_depth_per_position >= 1)
+                            region_breadth_coverage = (region_covered_positions / region_length) * 100 if region_length > 0 else 0
+
+                            query = self.header_to_query.get(ref)
+                            threshold = float(query.get("threshold", 0)) if query else 0
+                            if region_depth_coverage >= threshold:
+                                alert_str = f"Alert: Region {region['id']} in {ref} depth coverage reached {region_depth_coverage:.2f}x (threshold: {threshold}x)"
+                                logger.critical(alert_str)
+                                self._send_notifications(alert_str)
 
             unmapped_count = bam.unmapped
             coverage_data['unmapped'] = {
@@ -265,31 +332,65 @@ class FileHandler(FileSystemEventHandler):
         except Exception as e:
             logger.error(f"Error calculating coverage: {e}")
 
-    def check_depth_coverage_alert(self, ref: str, depth_coverage: float):
+    def check_coverage_alerts(self, ref: str, depth_coverage: float, breadth_coverage: float):
         """Check if depth coverage exceeds the threshold and trigger alerts if necessary."""
+        logger.debug(f"Checking alerts for {ref}: Depth {depth_coverage}, Breadth {breadth_coverage}")
         query = self.header_to_query.get(ref)
+        logger.debug(f"header_to_query keys: {list(self.header_to_query.keys())}")
+        logger.debug(query)
         if query:
-            threshold = float(query.get("threshold", 0))
-            if depth_coverage >= threshold:
-                alert_str = f"Alert: {query['name']} - {ref} depth coverage reached {depth_coverage:.2f}x (threshold: {threshold}x)"
-                logger.critical(alert_str)
-                device = self.config.get("device", "")
-                alert_notif_config = self.config.get("alertNotifConfig", {})
-                if device:
-                    LinuxNotification.send_notification(device, alert_str)
-                if alert_notif_config.get("enableEmail", False):
-                    email_config = alert_notif_config.get("emailConfig", {})
-                    if all(key in email_config for key in ["sender", "recipient", "smtpServer", "smtpPort", "password"]):
-                        send_email("nanoCAS Alert", alert_str, email_config)
+            if query.get("alert_on_depth", False):
+                depth_threshold = float(query.get("depth_threshold", 0))
+                if depth_coverage >= depth_threshold:
+                    alert_key = f"{ref}_depth"
+                    if not self._check_if_alert_sent(alert_key):
+                        alert_str = f"Alert: {query['name']} - {ref} depth coverage reached {depth_coverage:.2f}x (threshold: {depth_threshold}x)"
+                        logger.critical(alert_str)
+                        self._send_notifications(alert_str)
+                        self._mark_alert_as_sent(alert_key, {
+                            'type': 'depth',
+                            'reference': ref,
+                            'value': depth_coverage,
+                            'threshold': depth_threshold
+                        })
                     else:
-                        logger.error("Email configuration is incomplete.")
-                if alert_notif_config.get("enableSMS", False):
-                    sms_recipient = alert_notif_config.get("smsRecipient", "")
-                    if sms_recipient:
-                        send_sms(alert_str, sms_recipient)
+                        logger.debug(f"Depth alert for {alert_key} already sent, skipping")
+            if query.get("alert_on_breadth", False):
+                breadth_threshold = float(query.get("breadth_threshold", 0))
+                if breadth_coverage >= breadth_threshold:
+                    alert_key = f"{ref}_breadth"
+                    if not self._check_if_alert_sent(alert_key):
+                        alert_str = f"Alert: {query['name']} - {ref} breadth coverage reached {breadth_coverage:.2f}% (threshold: {breadth_threshold}%)"
+                        logger.critical(alert_str)
+                        self._send_notifications(alert_str)
+                        self._mark_alert_as_sent(alert_key, {
+                            'type': 'breadth',
+                            'reference': ref,
+                            'value': breadth_coverage,
+                            'threshold': breadth_threshold
+                        })
                     else:
-                        logger.error("SMS recipient phone number is missing.")
+                        logger.debug(f"Breadth alert for {alert_key} already sent, skipping")
+            
 
+    def _send_notifications(self, alert_str: str):
+        device = self.config.get("device", "")
+        alert_notif_config = self.config.get("alertNotifConfig", {})
+        if device:
+            LinuxNotification.send_notification(device, alert_str)
+        if alert_notif_config.get("enableEmail", False):
+            email_config = alert_notif_config.get("emailConfig", {})
+            if all(key in email_config for key in ["sender", "recipient", "smtpServer", "smtpPort", "password"]):
+                send_email("nanoCAS Alert", alert_str, email_config)
+            else:
+                logger.error("Email configuration is incomplete.")
+        if alert_notif_config.get("enableSMS", False):
+            sms_recipient = alert_notif_config.get("smsRecipient", "")
+            if sms_recipient:
+                send_sms(alert_str, sms_recipient)
+            else:
+                logger.error("SMS recipient phone number is missing.")
+    
     def get_existing_files(self, directory):
         """Get list of existing files of the specified type, sorted by modification time."""
         if self.file_type == 'FASTQ':

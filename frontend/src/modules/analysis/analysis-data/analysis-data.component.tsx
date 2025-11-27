@@ -45,7 +45,7 @@ const AnalysisDataComponent: FunctionComponent<IAnalysisDataProps> = ({ data }) 
     const [timeUnit, setTimeUnit] = useState<TimeUnit>('seconds');
     const [isDatabaseReady, setIsDatabaseReady] = useState(false);
 
-    const threshold = data.data.queries[0]?.threshold ? parseFloat(data.data.queries[0].threshold) : 100;
+    const threshold = data.data.queries[0]?.depth_threshold ? parseFloat(data.data.queries[0].depth_threshold) : 100;
 
     const unitLabels: Record<TimeUnit, string> = {
         seconds: 's',

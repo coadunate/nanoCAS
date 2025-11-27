@@ -15,7 +15,7 @@ import {IAlertNotifSetupInput} from "./setup-steps/alert-notif-setup/alert-notif
 
 const qrs: IAlertData = {
     queries: [
-        {name: "", file: "", threshold: "", current_fold_change: 0, alert: false},
+        {name: "", file: "", depth_threshold: "", current_deth: 0, alert_on_depth: false, breadth_threshold: "", alert_on_breadth: false, currrent_breadth: 0, header: ""},
     ]
 };
 
